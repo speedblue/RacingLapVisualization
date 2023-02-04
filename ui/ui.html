@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="ui.css">
+</head>
+
+
+<body>
+
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/modules/data.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/modules/export-data.js"></script>
+  <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+  <script src="telemetry.js"></script>
+  <script src="ui.js"></script>
+
+  <!-- Rounded switch -->
+  <h1>Lap Visualization</h1>
+  
+  <h2>Summary</h2>
+    <div class="summaryContainer" >
+      <div class="summary" >
+          <div class="summaryContent summaryContentTitle" id="leftSummaryDiv">
+            Track:</br>
+            Length:</br>
+            Date:</br>
+            Event:</br>
+            First Lap:</br>
+            Second Lap:</br>
+            Zoom:
+          </div>
+          <div class="summaryContent" id="rightSummaryDiv"></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Charts to display</h2>
+  <div class="config">
+
+    <div class="container">
+      <h3>Speed/Throttle/Brake</h3>
+      <div class="checkbox-container green">
+	<input type="checkbox" checked id="stb_config"/>
+	<label for="stb_config"></label>
+	<div class="active-circle"></div>
+      </div>
+    </div>
+    
+    <div class="container">
+      <h3>Delta Analysis</h3>
+      <div class="checkbox-container yellow">
+	<input type="checkbox" id="delta_config" />
+	<label for="delta_config"></label>
+	<div class="active-circle"></div>
+      </div>
+    </div>
+    
+    <div class="container">
+      <h3>Gear</h3>
+      <div class="checkbox-container purple">
+	<input type="checkbox" id="gear_config" />
+	<label for="gear_config"></label>
+	<div class="active-circle"></div>
+      </div>
+    </div>
+    
+    <div class="container">
+      <h3>Steering Wheel</h3>
+      <div class="checkbox-container yellow">
+	<input type="checkbox" id="swa_config" />
+	<label for="swa_config"></label>
+	<div class="active-circle"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <h2>Data</h2>
+
+  <figure class="highcharts-figure">
+    <div id="speed_container"></div>
+    <div id="speedDelta_container" class="hidden"></div>
+    
+    <div id="throttle_container"></div>
+    <div id="throttleDelta_container" class="hidden"></div>
+    
+    <div id="brake_container"></div>
+    <div id="brakeDelta_container" class="hidden"></div>
+    
+    <div id="swa_container" class="hidden"></div>
+    <div id="gear_container" class="hidden"></div>
+    
+    <div id="timeDelta_container" class="hidden"></div>
+  </figure>
+</html>
