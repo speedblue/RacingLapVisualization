@@ -312,6 +312,21 @@ if (speedSeries.length == 2) {
     });
 }
 
+navigationIncrement = 50;
+window.onload = function (){
+    eventHandler = function (e) {
+        if (currentZoom == null)
+            return;
+        if (e.keyCode == 37 && currentZoom[0] > navigationIncrement) {
+            updateAllChartZoom(null, currentZoom[0] - navigationIncrement, currentZoom[1] - navigationIncrement);
+        }
+        if (e.keyCode == 39 && currentZoom[1] + navigationIncrement < maxDist) {
+            updateAllChartZoom(null, currentZoom[0] + navigationIncrement, currentZoom[1] + navigationIncrement);
+        }
+    }
+  window.addEventListener('keydown', eventHandler, false);
+}
+                          
 document.addEventListener('DOMContentLoaded', function () {
     setSummaryContent();
     const stbCheckbox = document.getElementById('stb_config')
