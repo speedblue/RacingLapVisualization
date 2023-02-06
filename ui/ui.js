@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                           data: computeDeltaSurface(brakeSeries[0].data, brakeSeries[1].data) } ])
         timeDeltaChart = createChart('timeDelta_container', 'Time delta (reference = ' + telemetry.laps[1].name + ')',
                                      'Delta (second)', timeDeltaChartSelection,
-                                     [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                     [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 1},
                                          point: { events: { mouseOver: timeDeltaChartMouseOver, mouseOut: timeDeltaChartMouseOut}},
                                          data: timeDeltaData } ])
     } else {
