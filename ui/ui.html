@@ -35,62 +35,110 @@
     </div>
   </div>
 
-  <h2>Charts to display</h2>
+  <h2>Configuration</h2>
   <div class="config">
 
-    <div class="container">
-      <h3>Speed/Throttle/Brake</h3>
+    <div class="configItem">
+      <h3>Speed</h3>
       <div class="checkbox-container green">
-	<input type="checkbox" checked id="stb_config"/>
-	<label for="stb_config"></label>
+	<input type="checkbox" checked id="speedConfig"/>
+	<label for="speedConfig"></label>
 	<div class="active-circle"></div>
       </div>
     </div>
-    
-    <div class="container">
-      <h3>Delta Analysis</h3>
-      <div class="checkbox-container yellow">
-	<input type="checkbox" id="delta_config" />
-	<label for="delta_config"></label>
-	<div class="active-circle"></div>
+    <div class="configItem">
+      <h3>Throttle</h3>
+      <div class="checkbox-container green">
+    <input type="checkbox" checked id="throttleConfig"/>
+    <label for="throttleConfig"></label>
+    <div class="active-circle"></div>
+      </div>
+    </div>
+    <div class="configItem">
+      <h3>Brake</h3>
+      <div class="checkbox-container green">
+    <input type="checkbox" checked id="brakeConfig"/>
+    <label for="brakeConfig"></label>
+    <div class="active-circle"></div>
       </div>
     </div>
     
-    <div class="container">
+
+    
+    <div class="configItem">
       <h3>Gear</h3>
       <div class="checkbox-container purple">
-	<input type="checkbox" id="gear_config" />
-	<label for="gear_config"></label>
+	<input type="checkbox" id="gearConfig" />
+	<label for="gearConfig"></label>
 	<div class="active-circle"></div>
       </div>
     </div>
     
-    <div class="container">
+    <div class="configItem">
       <h3>Steering Wheel</h3>
-      <div class="checkbox-container yellow">
-	<input type="checkbox" id="swa_config" />
-	<label for="swa_config"></label>
+      <div class="checkbox-container purple">
+	<input type="checkbox" id="swaConfig" />
+	<label for="swaConfig"></label>
 	<div class="active-circle"></div>
       </div>
     </div>
-
+    
+    <div class="configItem">
+      <h3>Time Delta</h3>
+      <div class="checkbox-container yellow">
+    <input type="checkbox" checked id="timeDeltaConfig" />
+    <label for="timeDeltaConfig"></label>
+    <div class="active-circle"></div>
+      </div>
+    </div>
+    <div class="configItem">
+      <h3>Speed Delta</h3>
+      <div class="checkbox-container yellow">
+    <input type="checkbox" id="speedDeltaConfig" />
+    <label for="speedDeltaConfig"></label>
+    <div class="active-circle"></div>
+      </div>
+    </div>
+    <div class="configItem">
+      <h3>Throttle Delta</h3>
+      <div class="checkbox-container yellow">
+    <input type="checkbox" id="throttleDeltaConfig" />
+    <label for="throttleDeltaConfig"></label>
+    <div class="active-circle"></div>
+      </div>
+    </div>
+    <div class="configItem">
+      <h3>Brake Delta</h3>
+      <div class="checkbox-container yellow">
+    <input type="checkbox" id="brakeDeltaConfig" />
+    <label for="brakeDeltaConfig"></label>
+    <div class="active-circle"></div>
+      </div>
+    </div>
+    
+    <div class="configItem">
+        <h3>Chart Size</h3>
+        <div class="slidecontainer">
+          <input type="range" min="350" max="800" value="450" class="slider" id="graphSizeSlider">
+        </div>
+    </div>
   </div>
 
+  
   <h2>Data</h2>
 
-  <figure class="highcharts-figure">
-    <div id="speed_container"></div>
-    <div id="speedDelta_container" class="hidden"></div>
+  <figure class="graphContainer highcharts-figure">
+    <div id="speed_container" class="graphItem"></div>
+    <div id="throttle_container" class="graphItem"></div>
+    <div id="brake_container" class="graphItem"></div>
     
-    <div id="throttle_container"></div>
-    <div id="throttleDelta_container" class="hidden"></div>
-    
-    <div id="brake_container"></div>
-    <div id="brakeDelta_container" class="hidden"></div>
-    
-    <div id="swa_container" class="hidden"></div>
-    <div id="gear_container" class="hidden"></div>
-    
-    <div id="timeDelta_container" class="hidden"></div>
+    <div id="gear_container" class="graphItem hidden"></div>
+    <div id="swa_container" class="graphItem hidden"></div>
+
+    <div id="timeDelta_container" class="graphItem"></div>
+    <div id="speedDelta_container" class="graphItem hidden"></div>
+    <div id="throttleDelta_container" class="graphItem hidden"></div>
+    <div id="brakeDelta_container" class="graphItem hidden"></div>
+
   </figure>
 </html>

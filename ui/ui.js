@@ -37,24 +37,158 @@ function normalizeValues(array) {
    }
 }
 
+function computeDeltaSurface(data1, data2) {
+    data = []
+    delta = 0.0
+    for (i = 0; i < data1.length; ++i) {
+        delta += data1[i][1] - data2[i][1]
+        data.push([i, delta]);
+    }
+    return data;
+}
+
 speedSeries = []
 throttleSeries = []
 brakeSeries = []
 gearSeries = []
 timeSeries = []
 swaSeries = []
-
 maxDist = 0
-for (const lap of telemetry.laps) {
-    for (const d of lap.data) {
-        if (d[0] > maxDist) {
-            maxDist = d[0] + 1
+timeDeltaData = []
+
+function parseTelemetryData() {
+    timePosition = -1;
+    distancePosition = -1;
+    speedPosition = -1;
+    brakePosition = -1;
+    throttlePosition = -1;
+    gearPosition = -1;
+    swaPosition = -1;
+
+    // analyze format
+    for (i = 0; i < telemetry.dataFormat.length; ++i) {
+        switch (telemetry.dataFormat[i]) {
+            case 'D':
+                distancePosition = i;
+                break;
+            case 'T':
+                timePosition = i;
+                break;
+            case 'S':
+                speedPosition = i;
+                break;
+            case 'g':
+                gearPosition = i;
+                break;
+            case 'b':
+                brakePosition = i;
+                break;
+            case 't':
+                throttlePosition = i;
+                break;
+            case 's':
+                swaPosition = i;
+                break;
+            default:
+                console.log("Unknown data format:" + telemetry.dataFormat[i])
+        }
+    }
+    console.assert(timePosition >= 0)
+    console.assert(distancePosition >= 0)
+    console.assert(speedPosition >= 0)
+    for (const lap of telemetry.laps) {
+        for (const d of lap.data) {
+            if (d[distancePosition] > maxDist) {
+                maxDist = d[distancePosition] + 1
+            }
+        }
+    }
+    for (const lap of telemetry.laps) {
+        time = Array(maxDist).fill(null)
+        speed = Array(maxDist).fill(null)
+        gear = Array(maxDist).fill(null)
+        throttle = Array(maxDist).fill(null)
+        brake = Array(maxDist).fill(null)
+        swa = Array(maxDist).fill(null)
+        
+        for (const d of lap.data) {
+            time[d[distancePosition]] = d[timePosition]
+            speed[d[distancePosition]] = d[speedPosition]
+            if (gearPosition >= 0)
+                gear[d[distancePosition]] = d[gearPosition]
+            if (throttlePosition >= 0)
+                throttle[d[distancePosition]] = d[throttlePosition]
+            if (brakePosition >= 0)
+                brake[d[distancePosition]] = d[brakePosition]
+            if (swaPosition >= 0)
+                swa[d[distancePosition]] = d[swaPosition]
+        }
+        normalizeValues(time)
+        normalizeValues(speed)
+        if (gearPosition >= 0)
+            normalizeValues(gear)
+        if (throttlePosition >= 0)
+            normalizeValues(throttle)
+        if (brakePosition >= 0)
+            normalizeValues(brake)
+        if (swaPosition >= 0)
+            normalizeValues(swa)
+        
+        speedObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: speedChartMouseOver, mouseOut: speedChartMouseOut}} }
+        throttleObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: throttleChartMouseOver, mouseOut: throttleChartMouseOut}} }
+        brakeObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: brakeChartMouseOver, mouseOut: brakeChartMouseOut}} }
+        swaObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: swaChartMouseOver, mouseOut: swaChartMouseOut}} }
+        gearObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: gearChartMouseOver, mouseOut: gearChartMouseOut}} }
+        for (i = 0; i < maxDist; ++i) {
+            speedObj.data.push([i, speed[i]])
+            throttleObj.data.push([i, throttle[i]])
+            brakeObj.data.push([i, brake[i]])
+            swaObj.data.push([i, swa[i]])
+            gearObj.data.push([i, gear[i]])
+        }
+        speedSeries.push(speedObj)
+        throttleSeries.push(throttleObj)
+        brakeSeries.push(brakeObj)
+        gearSeries.push(gearObj)
+        swaSeries.push(swaObj)
+        timeSeries.push(time)
+    }
+
+    // Compute TimeDelta
+    if (timeSeries.length == 2) {
+        for (i = 0; i < maxDist; ++i) {
+            delta = timeSeries[0][i] - timeSeries[1][i]
+            delta = Math.floor(delta * 100) / 100.0
+            timeDeltaData.push(delta)
+        }
+        
+        // reduce noise in timeDeltaData by checking at 20m area and removing small spikes than less than 0.1s
+        for (i = 0; i < timeDeltaData.length; ++i) {
+            found = 0;
+            for (j = 1; j < 20 && (i + j) < timeDeltaData.length; ++j) {
+                if (timeDeltaData[i] == timeDeltaData[i + j]) {
+                    found = j;
+                }
+            }
+            if (found > 0) {
+                for (j = 1; j < found; ++j) {
+                    if (Math.abs(timeDeltaData[i + j] - timeDeltaData[i]) < 0.1)
+                        timeDeltaData[i + j] = timeDeltaData[i]
+                }
+            }
         }
     }
 }
+
 function refreshTooltips(srcChart, dstChart, nbElts, position, enabled) {
     if (srcChart != dstChart && dstChart != null) {
         if (enabled) {
+            dstChart.xAxis[0].drawCrosshair(null, dstChart.series[0].data[position]);
             if (nbElts == 2)
                 dstChart.tooltip.refresh([dstChart.series[0].data[position], dstChart.series[1].data[position]]);
             else
@@ -99,53 +233,7 @@ function brakeDeltaChartMouseOut(e) { refreshAllTooltips(brakeDeltaChart, this.x
 function timeDeltaChartMouseOver(e) { refreshAllTooltips(timeDeltaChart, this.x, true); }
 function timeDeltaChartMouseOut(e) { refreshAllTooltips(timeDeltaChart, this.x, false); }
 
-for (const lap of telemetry.laps) {
-    time = Array(maxDist).fill(null)
-    speed = Array(maxDist).fill(null)
-    gear = Array(maxDist).fill(null)
-    throttle = Array(maxDist).fill(null)
-    brake = Array(maxDist).fill(null)
-    swa = Array(maxDist).fill(null)
-    
-    for (const d of lap.data) {
-        time[d[0]] = d[1]
-        speed[d[0]] = d[2]
-        gear[d[0]] = d[3]
-        throttle[d[0]] = d[4]
-        brake[d[0]] = d[5]
-        swa[d[0]] = d[6]
-    }
-    normalizeValues(time)
-    normalizeValues(speed)
-    normalizeValues(gear)
-    normalizeValues(throttle)
-    normalizeValues(brake)
-    normalizeValues(swa)
-
-    speedObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
-                point: { events: { mouseOver: speedChartMouseOver, mouseOut: speedChartMouseOut}} }
-    throttleObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
-                point: { events: { mouseOver: throttleChartMouseOver, mouseOut: throttleChartMouseOut}} }
-    brakeObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
-                point: { events: { mouseOver: brakeChartMouseOver, mouseOut: brakeChartMouseOut}} }
-    swaObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
-                point: { events: { mouseOver: swaChartMouseOver, mouseOut: swaChartMouseOut}} }
-    gearObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
-                point: { events: { mouseOver: gearChartMouseOver, mouseOut: gearChartMouseOut}} }
-    for (i = 0; i < maxDist; ++i) {
-        speedObj.data.push([i, speed[i]])
-        throttleObj.data.push([i, throttle[i]])
-        brakeObj.data.push([i, brake[i]])
-        swaObj.data.push([i, swa[i]])
-        gearObj.data.push([i, gear[i]])
-    }
-    speedSeries.push(speedObj)
-    throttleSeries.push(throttleObj)
-    brakeSeries.push(brakeObj)
-    gearSeries.push(gearObj)
-    swaSeries.push(swaObj)
-    timeSeries.push(time)
-}
+parseTelemetryData();
 
 Highcharts.setOptions({
     colors: [ '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
@@ -232,151 +320,53 @@ function throttleDeltaChartSelection(event) { applyChartSelection(throttleDeltaC
 function brakeDeltaChartSelection(event) { applyChartSelection(brakeDeltaChart, event)}
 function timeDeltaChartSelection(event) { applyChartSelection(timeDeltaChart, event)}
 
-document.addEventListener('DOMContentLoaded', function () {
-    speedChart = Highcharts.chart('speed_container', {
-        chart: { zoomType: 'x', events: { selection: speedChartSelection} },
-        title: { text: 'Speed', align: 'left' },
+function createChart(container, title, yAxisTitle, chartSelectionFunction, dataSeries) {
+    return Highcharts.chart(container, {
+        chart: { zoomType: 'x', events: { selection: chartSelectionFunction} },
+        title: { text: title, align: 'left' },
         tooltip: { shared: true},
         xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: 'Speed (km/h)' } },
+        yAxis: { title: { text: yAxisTitle } },
         legend: { enabled: false },
-        series: speedSeries
+        series: dataSeries
     });
-
-    throttleChart = Highcharts.chart('throttle_container', {
-    chart: { zoomType: 'x', events: { selection: throttleChartSelection} },
-        title: { text: 'Throttle', align: 'left' },
-        tooltip: { shared: true},
-        xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: 'Throttle percentage' } },
-        legend: { enabled: false },
-        series: throttleSeries
-    });
-
-    swaChart = Highcharts.chart('swa_container', {
-        chart: { zoomType: 'x', events: { selection: swaChartSelection}  },
-        title: { text: 'Steering Wheel Angle', align: 'left' },
-        tooltip: { shared: true},
-        xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: 'Angle' } },
-        legend: { enabled: false },
-        series: swaSeries
-    });
-
-    brakeChart = Highcharts.chart('brake_container', {
-        chart: { zoomType: 'x', events: { selection: brakeChartSelection} },
-        title: { text: 'Brake', align: 'left' },
-        tooltip: { shared: true},
-        xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: 'Brake pressure' } },
-        legend: { enabled: false },
-        series: brakeSeries
-    });
-
-    gearChart = Highcharts.chart('gear_container', {
-        chart: { zoomType: 'x', events: { selection: gearChartSelection} },
-        title: { text: 'Gear', align: 'left' },
-        tooltip: { shared: true},
-        xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: 'Gear' } },
-        legend: { enabled: false },
-        series: gearSeries
-    });
-});
-
-function computeDeltaSurface(data1, data2) {
-    data = []
-    delta = 0.0
-    for (i = 0; i < data1.length; ++i) {
-        delta += data1[i][1] - data2[i][1]
-        data.push([i, delta]);
-    }
-    return data;
 }
-
-// Display Delta charts
-if (speedSeries.length == 2) {
-    timeDeltaData = []
-    for (i = 0; i < maxDist; ++i) {
-        delta = timeSeries[0][i] - timeSeries[1][i]
-        delta = Math.floor(delta * 100) / 100.0
-        timeDeltaData.push(delta)
-    }
+document.addEventListener('DOMContentLoaded', function () {
+    speedChart = createChart('speed_container', 'Speed', 'Speed (km/h)', speedChartSelection, speedSeries);
+    throttleChart = createChart('throttle_container', 'Throttle', 'Throttle percentage', throttleChartSelection, throttleSeries);
+    swaChart = createChart ('swa_container', 'Steering Wheel Angle', 'Angle', swaChartSelection, swaSeries);
+    brakeChart = createChart('brake_container', 'Brake', 'Brake pressure', brakeChartSelection, brakeSeries);
+    gearChart = createChart('gear_container', 'Gear', 'Gear', gearChartSelection, gearSeries);
     
-    // reduce noise in timeDeltaData by checking at 20m area and removing small spikes than less than 0.1s
-    for (i = 0; i < timeDeltaData.length; ++i) {
-        found = 0;
-        for (j = 1; j < 20 && (i + j) < timeDeltaData.length; ++j) {
-            if (timeDeltaData[i] == timeDeltaData[i + j]) {
-                found = j;
-            }
-        }
-        if (found > 0) {
-            for (j = 1; j < found; ++j) {
-                if (Math.abs(timeDeltaData[i + j] - timeDeltaData[i]) < 0.1)
-                    timeDeltaData[i + j] = timeDeltaData[i]
-            }
-        }
-    }
-	
-    document.addEventListener('DOMContentLoaded', function () {
-	
-        speedDeltaChart = Highcharts.chart('speedDelta_container', {
-            chart: { zoomType: 'x', events: { selection: speedDeltaChartSelection} },
-            title: { text: 'Speed delta (reference = ' + telemetry.laps[1].name + ')', align: 'left' },
-            tooltip: { shared: true},
-            xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-            yAxis: { title: { text: 'Delta (km/h)' } },
-            legend: { enabled: false },
-            series: [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
-                        point: { events: { mouseOver: speedDeltaChartMouseOver, mouseOut: speedDeltaChartMouseOut}},
-                        data: computeDeltaSurface(speedSeries[0].data, speedSeries[1].data) } ]
-        });
-	
-        throttleDeltaChart = Highcharts.chart('throttleDelta_container', {
-            chart: { zoomType: 'x', events: { selection: throttleDeltaChartSelection} },
-            title: { text: 'Throttle delta (reference = ' + telemetry.laps[1].name + ')', align: 'left' },
-            tooltip: { shared: true},
-            xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-            yAxis: { title: { text: 'Delta' } },
-            legend: { enabled: false },
-            series: [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
-                        point: { events: { mouseOver: throttleDeltaChartMouseOver, mouseOut: throttleDeltaChartMouseOut}},
-                        data: computeDeltaSurface(throttleSeries[0].data, throttleSeries[1].data) } ]
-        });
-        
-        brakeDeltaChart = Highcharts.chart('brakeDelta_container', {
-            chart: { zoomType: 'x', events: { selection: brakeDeltaChartSelection} },
-            title: { text: 'Brake delta (reference = ' + telemetry.laps[1].name + ')', align: 'left' },
-            tooltip: { shared: true},
-            xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-            yAxis: { title: { text: 'Delta' } },
-            legend: { enabled: false },
-            series: [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
-                        point: { events: { mouseOver: brakeDeltaChartMouseOver, mouseOut: brakeDeltaChartMouseOut}},
-                        data: computeDeltaSurface(brakeSeries[0].data, brakeSeries[1].data) } ]
-        });
-        
-        timeDeltaChart = Highcharts.chart('timeDelta_container', {
-            chart: { zoomType: 'x', events: { selection: timeDeltaChartSelection} },
-            title: { text: 'Time delta (reference = ' + telemetry.laps[1].name + ')', align: 'left' },
-            tooltip: { shared: true},
-            xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-            yAxis: { title: { text: 'Delta (second)' } },
-            legend: { enabled: false },
-            series: [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
-                    point: { events: { mouseOver: timeDeltaChartMouseOver, mouseOut: timeDeltaChartMouseOut}}, data: timeDeltaData } ]
-        });
-        
-    });
-} else {
-    document.addEventListener('DOMContentLoaded', function () {
+    if (speedSeries.length == 2) {
+        speedDeltaChart = createChart('speedDelta_container', 'Speed delta (reference = ' + telemetry.laps[1].name + ')',
+                                      'Cumulated Delta', speedDeltaChartSelection,
+                                      [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                          point: { events: { mouseOver: speedDeltaChartMouseOver, mouseOut: speedDeltaChartMouseOut}},
+                                          data: computeDeltaSurface(speedSeries[0].data, speedSeries[1].data) } ])
+        throttleDeltaChart = createChart('throttleDelta_container', 'Throttle delta (reference = ' + telemetry.laps[1].name + ')',
+                                         'Cumulated Delta', throttleDeltaChartSelection,
+                                         [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                             point: { events: { mouseOver: throttleDeltaChartMouseOver, mouseOut: throttleDeltaChartMouseOut}},
+                                             data: computeDeltaSurface(throttleSeries[0].data, throttleSeries[1].data) } ])
+        brakeDeltaChart = createChart('brakeDelta_container', 'Brake delta (reference = ' + telemetry.laps[1].name + ')',
+                                      'Cumulated Delta', brakeDeltaChartSelection,
+                                      [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                          point: { events: { mouseOver: brakeDeltaChartMouseOver, mouseOut: brakeDeltaChartMouseOut}},
+                                          data: computeDeltaSurface(brakeSeries[0].data, brakeSeries[1].data) } ])
+        timeDeltaChart = createChart('timeDelta_container', 'Time delta (reference = ' + telemetry.laps[1].name + ')',
+                                     'Delta (second)', timeDeltaChartSelection,
+                                     [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                         point: { events: { mouseOver: timeDeltaChartMouseOver, mouseOut: timeDeltaChartMouseOut}},
+                                         data: timeDeltaData } ])
+    } else {
         document.getElementById('timeDelta_container').style.display = 'none'
         const deltaCheckbox = document.getElementById('delta_config')
         deltaCheckbox.disabled = true;
-    });
-}
+    }
+});
 
+// Navigation by left/right key in the graphs when zoom is active
 window.onload = function (){
     eventHandler = function (e) {
         if (currentZoom == null)
@@ -400,51 +390,55 @@ window.onload = function (){
                           
 document.addEventListener('DOMContentLoaded', function () {
     setSummaryContent();
-    const stbCheckbox = document.getElementById('stb_config')
-    stbCheckbox.addEventListener('change', (event) => {
-        if (event.currentTarget.checked) {
-            document.getElementById('speed_container').style.display = 'block'
-            document.getElementById('brake_container').style.display = 'block'
-            document.getElementById('throttle_container').style.display = 'block'
-        } else {
-            document.getElementById('speed_container').style.display = 'none'
-            document.getElementById('brake_container').style.display = 'none'
-            document.getElementById('throttle_container').style.display = 'none'
-        }
+    document.getElementById('speedConfig').addEventListener('change', (event) => {
+        document.getElementById('speed_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        speedChart.reflow()
     })
-
-    const deltaCheckbox = document.getElementById('delta_config')
-    deltaCheckbox.addEventListener('change', (event) => {
-        if (event.currentTarget.checked) {
-            document.getElementById('speedDelta_container').style.display = 'block'
-            document.getElementById('brakeDelta_container').style.display = 'block'
-            document.getElementById('throttleDelta_container').style.display = 'block'
-            document.getElementById('timeDelta_container').style.display = 'block'
-        } else {
-            document.getElementById('speedDelta_container').style.display = 'none'
-            document.getElementById('brakeDelta_container').style.display = 'none'
-            document.getElementById('throttleDelta_container').style.display = 'none'
-            document.getElementById('timeDelta_container').style.display = 'none'
-        }
+    document.getElementById('brakeConfig').addEventListener('change', (event) => {
+        document.getElementById('brake_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        brakeChart.reflow()
     })
-
-    const gearCheckbox = document.getElementById('gear_config')
-    gearCheckbox.addEventListener('change', (event) => {
-        if (event.currentTarget.checked) {
-            document.getElementById('gear_container').style.display = 'block'
-        } else {
-            document.getElementById('gear_container').style.display = 'none'
-        }
+    document.getElementById('throttleConfig').addEventListener('change', (event) => {
+        document.getElementById('throttle_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        throttleChart.reflow()
     })
-
-    const swaCheckbox = document.getElementById('swa_config')
-    swaCheckbox.addEventListener('change', (event) => {
-        if (event.currentTarget.checked) {
-            document.getElementById('swa_container').style.display = 'block'
-        } else {
-            document.getElementById('swa_container').style.display = 'none'
-        }
+    document.getElementById('speedDeltaConfig').addEventListener('change', (event) => {
+        document.getElementById('speedDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        speedDeltaChart.reflow()
     })
-
+    document.getElementById('brakeDeltaConfig').addEventListener('change', (event) => {
+        document.getElementById('brakeDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        brakeDeltaChart.reflow()
+    })
+    document.getElementById('throttleDeltaConfig').addEventListener('change', (event) => {
+        document.getElementById('throttleDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        throttleDeltaChart.reflow()
+    })
+    document.getElementById('timeDeltaConfig').addEventListener('change', (event) => {
+        document.getElementById('timeDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        timeDeltaChart.reflow()
+    })
+    document.getElementById('gearConfig').addEventListener('change', (event) => {
+        document.getElementById('gear_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        gearChart.reflow()
+    })
+    document.getElementById('swaConfig').addEventListener('change', (event) => {
+        document.getElementById('swa_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        swaChart.reflow()
+    })
+    document.getElementById("graphSizeSlider").oninput = function() {
+        for (const graphContainer of ['speed_container', 'brake_container', 'throttle_container', 'speedDelta_container', 'brakeDelta_container', 'throttleDelta_container', 'timeDelta_container', 'gear_container', 'swa_container']) {
+            document.getElementById(graphContainer).style.width = this.value + 'px';
+        }
+        speedChart.reflow()
+        throttleChart.reflow()
+        brakeChart.reflow()
+        gearChart.reflow()
+        swaChart.reflow()
+        speedDeltaChart.reflow()
+        throttleDeltaChart.reflow()
+        brakeDeltaChart.reflow()
+        timeDeltaChart.reflow()
+    }
 });
 
