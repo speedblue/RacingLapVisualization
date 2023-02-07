@@ -1,3 +1,4 @@
+
 // Scan the array and remplace empty values by the most accurate value (averrage of left + right values)
 function normalizeValues(array) {
     // Fill left
@@ -264,8 +265,13 @@ function displayLapTime(lapData) {
 
 function setSummaryContent() {
     value = telemetry.trackName + '</br>' + metersToKm(maxDist) + '</br>' + telemetry.date + '</br>' + telemetry.event + '</br>' +
-            telemetry.laps[0].name + ' in ' + displayLapTime(telemetry.laps[0].data) + '</br>' +
-            telemetry.laps[1].name + ' in ' + displayLapTime(telemetry.laps[1].data) + '</br>';
+        telemetry.laps[0].name + ' in ' + displayLapTime(telemetry.laps[0].data) + '</br>';
+    if (telemetry.laps.length == 2) {
+        telemetry.laps[1].name + ' in ' + displayLapTime(telemetry.laps[1].data) + '</br>';
+    } else {
+	console.log('AHAH');
+	document.getElementById('leftSummaryDiv').innerHTML = 'Track:</br>Length:</br>Date:</br>Event:</br>Lap:</br>Zoom:';
+    }
     if (currentZoom == null) {
         value += 'Full Track';
     } else {
@@ -361,8 +367,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                          data: timeDeltaData } ])
     } else {
         document.getElementById('timeDelta_container').style.display = 'none'
-        const deltaCheckbox = document.getElementById('delta_config')
-        deltaCheckbox.disabled = true;
+        document.getElementById('timeDeltaContainer').style.display = 'none'
+	document.getElementById('speedDeltaContainer').style.display = 'none'
+	document.getElementById('brakeDeltaContainer').style.display = 'none'
+	document.getElementById('throttleDeltaContainer').style.display = 'none'
     }
 });
 
