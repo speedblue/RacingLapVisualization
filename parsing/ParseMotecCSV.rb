@@ -114,7 +114,6 @@ while i < ARGV.size do
   name = ARGV[i + 2]
   CSV.foreach(ARGV[i], :headers => true) do |row|
     row.each do | k, v| 
-     # puts '[' + k + ']=[' + v + ']'
     end
     lap = (row['Lap Number'].to_i + i * 100).to_s
     dist = row['Distance'].to_i
@@ -122,7 +121,6 @@ while i < ARGV.size do
       laps[lap] = Lap.new(lap, lap.to_i == lapToImport, name, row['Time'].to_f)
       refDist = dist
     end
-    puts(lap + ' -> distance=' + row['Distance'])
     laps[lap].add(row['Time'].to_f, dist - refDist, row['Ground Speed'].to_f, row['Gear'], row['Engine RPM'].to_i, row['Throttle Pos'].to_f, row['Brake Pos'].to_f, row['Steering Wheel Position'].to_f, 0, row['GPS Latitude'].to_f, row['GPS Longitude'].to_f)
   end
   i += 3
@@ -145,7 +143,6 @@ laps.each do | lap, v |
     firstLap = false
     out.write("{\"name\":\"%s\",\"data\":[" % v.name) 
     firstData=true
-    puts 'DATA SIZE for lap(' + lap + ') : ' + v.getData.length.to_s
     v.getData.each do | dist, data|
       if firstData
         out.write("[")
