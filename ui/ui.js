@@ -260,7 +260,9 @@ function metersToKm(value) {
 function displayLapTime(lapData) {
     lastEl = lapData[lapData.length - 1]
     timeInSec = lastEl[1]
-    return Math.floor(timeInSec / 60) + ':' + (Math.floor(timeInSec) % 60) + '.' + (Math.floor(timeInSec * 100) % 100);
+    sec = (Math.floor(timeInSec) % 60)
+    msec = (Math.floor(timeInSec * 100) % 100)
+    return Math.floor(timeInSec / 60) + ':' + (sec < 10 ? '0' : '') + sec + '.' + (msec < 10 ? '0' : '') + msec;
 }
 
 function setSummaryContent() {
