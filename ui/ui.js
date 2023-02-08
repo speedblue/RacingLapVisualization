@@ -186,34 +186,34 @@ function parseTelemetryData() {
     }
 }
 
-function refreshTooltips(srcChart, dstChart, nbElts, position, enabled) {
+function refreshTooltips(srcChart, dstChart, position, enabled) {
     if (srcChart != dstChart && dstChart != null) {
         if (enabled) {
             dstChart.xAxis[0].drawCrosshair(null, dstChart.series[0].data[position]);
-            if (nbElts == 2)
+            if (dstChart.series.length == 2)
                 dstChart.tooltip.refresh([dstChart.series[0].data[position], dstChart.series[1].data[position]]);
             else
                 dstChart.tooltip.refresh(dstChart.series[0].data[position]);
             dstChart.series[0].data[position].setState('hover')
-            if (nbElts == 2)
+            if (dstChart.series.length == 2)
                 dstChart.series[1].data[position].setState('hover')
         } else {
             dstChart.series[0].data[position].setState('')
-            if (nbElts == 2)
+            if (dstChart.series.length == 2)
                 dstChart.series[1].data[position].setState('')
         }
     }
 }
 function refreshAllTooltips(srcChart, position, enabled) {
-    refreshTooltips(srcChart, speedChart, 2, position, enabled)
-    refreshTooltips(srcChart, throttleChart, 2, position, enabled)
-    refreshTooltips(srcChart, brakeChart, 2, position, enabled)
-    refreshTooltips(srcChart, gearChart, 2, position, enabled)
-    refreshTooltips(srcChart, swaChart, 2, position, enabled)
-    refreshTooltips(srcChart, speedDeltaChart, 1, position, enabled)
-    refreshTooltips(srcChart, throttleDeltaChart, 1, position, enabled)
-    refreshTooltips(srcChart, brakeDeltaChart, 1, position, enabled)
-    refreshTooltips(srcChart, timeDeltaChart, 1, position, enabled)
+    refreshTooltips(srcChart, speedChart, position, enabled)
+    refreshTooltips(srcChart, throttleChart, position, enabled)
+    refreshTooltips(srcChart, brakeChart, position, enabled)
+    refreshTooltips(srcChart, gearChart, position, enabled)
+    refreshTooltips(srcChart, swaChart, position, enabled)
+    refreshTooltips(srcChart, speedDeltaChart, position, enabled)
+    refreshTooltips(srcChart, throttleDeltaChart, position, enabled)
+    refreshTooltips(srcChart, brakeDeltaChart, position, enabled)
+    refreshTooltips(srcChart, timeDeltaChart, position, enabled)
 }
 function speedChartMouseOver(e) { refreshAllTooltips(speedChart, this.x, true); }
 function speedChartMouseOut(e) { refreshAllTooltips(speedChart, this.x, false); }
