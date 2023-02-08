@@ -266,13 +266,12 @@ function displayLapTime(lapData) {
 }
 
 function setSummaryContent() {
-    value = telemetry.trackName + '</br>' + metersToKm(maxDist) + '</br>' + telemetry.date + '</br>' + telemetry.event + '</br>' +
+    value = telemetry.trackName + '</br>' + metersToKm(maxDist) + '</br>' + telemetry.car + '</br>' + telemetry.date + '</br>' + telemetry.event + '</br>' +
         telemetry.laps[0].name + ' in ' + displayLapTime(telemetry.laps[0].data) + '</br>';
     if (telemetry.laps.length == 2) {
         value += telemetry.laps[1].name + ' in ' + displayLapTime(telemetry.laps[1].data) + '</br>';
     } else {
-	console.log('AHAH');
-	document.getElementById('leftSummaryDiv').innerHTML = 'Track:</br>Length:</br>Date:</br>Event:</br>Lap:</br>Zoom:';
+	document.getElementById('leftSummaryDiv').innerHTML = 'Track:</br>Length:</br>Car:</br>Date:</br>Event:</br>Lap:</br>Zoom:';
     }
     if (currentZoom == null) {
         value += 'Full Track';

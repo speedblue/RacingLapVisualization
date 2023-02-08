@@ -1,5 +1,6 @@
 telemetry = {
 trackName: "Estoril",
+car: "Ligier JS2R",
 event: "GT Winter Series 2022/2023",
 date: "2023-01-13",
 dataFormat: "DTSgtbs",

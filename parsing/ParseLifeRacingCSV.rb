@@ -149,6 +149,7 @@ end
 out = File.open("output.js", "w")
 out.write("telemetry = {")
 out.write("trackName: \"TRACK\",")
+out.write("car: \"CAR\",")
 out.write("event: \"EVENT\",")
 out.write("date: \"DATE\",")
 out.write("dataFormat: \"DTSgtbs\",");

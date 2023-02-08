@@ -50,7 +50,7 @@ h1, h2, h3 {
     flex-direction: column;
     overflow: hidden;
     text-align: start;
-    height: 170px;
+    height: 200px;
     width: 300px;
     font-size: 1.2em;
     color: #555;
