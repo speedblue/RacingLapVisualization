@@ -53,11 +53,100 @@ throttleSeries = []
 brakeSeries = []
 gearSeries = []
 timeSeries = []
+gpsLatSeries = []
+gpsLongSeries = []
 swaSeries = []
+damperSeries = []
 maxDist = 0
+maxDist1 = 0
+maxDist2 = 0
 timeDeltaData = []
 
+function computeDistance(lat1, lon1, lat2, lon2)
+{
+    const R = 6371e3; // metres
+    const P1 = lat1 * Math.PI/180; // φ, λ in radians
+    const P2 = lat2 * Math.PI/180;
+    const D0 = (lat2-lat1) * Math.PI/180;
+    const D1 = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(D0/2) * Math.sin(D0/2) +
+              Math.cos(P1) * Math.cos(P2) *
+              Math.sin(D1/2) * Math.sin(D1/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // in metres
+}
+function computeOffset(timePosition, distPosition, gpsLatPosition, gpsLongPosition)
+{
+    // Detect long/short laps
+    l1Max = 0
+    for (const d of telemetry.laps[0].data) {
+        if (d[distPosition] > l1Max)
+            l1Max = d[distPosition];
+    }
+    l2Max = 0
+    for (const d of telemetry.laps[1].data) {
+        if (d[distPosition] > l2Max)
+            l2Max = d[distPosition];
+    }
+    shortLap = (l1Max <= l2Max) ? 0 : 1
+    longLap = (l1Max <= l2Max) ? 1 : 0
+
+    offsets = Array(telemetry.laps[shortLap].data.length).fill(0)
+    offset = 0
+    prevDelta = 0;
+    consequentDelta = 0;
+    
+    for (i = 0; i < telemetry.laps[shortLap].data.length; ++i) {
+        d1 = telemetry.laps[shortLap].data[i];
+        d1Dist = d1[distPosition] + offset;
+        offsets[i] = offset;
+        found = false
+        for (j = 0; !found && j < telemetry.laps[longLap].data.length; ++j) {
+            d2 = telemetry.laps[longLap].data[j];
+            if (Math.abs(d2[distPosition] - d1Dist) <= 1) // Only compare +/- 1 meters
+                found = true
+        }
+        minDistance = 1000000;
+        min = -1;
+        for (j = 0; found && j < telemetry.laps[longLap].data.length; ++j) {
+            d2 = telemetry.laps[longLap].data[j];
+            if (d2[distPosition] > d1Dist && (d2[distPosition] - d1Dist) < 10) { // Maximum 10 meters delta
+                delta = computeDistance(d1[gpsLatPosition], d1[gpsLongPosition], d2[gpsLatPosition], d2[gpsLongPosition])
+                if (delta < minDistance) {
+                    minDistance = delta;
+                    min = j;
+                }
+            }
+        }
+        if (found && d1Dist != telemetry.laps[longLap].data[min][distPosition]) {
+            deltaDist = Math.abs(telemetry.laps[longLap].data[min][distPosition] - d1Dist)
+            if (prevDelta == deltaDist) {
+                ++consequentDelta;
+            } else {
+                consequentDelta = 1;
+            }
+
+            console.log (i + ' Consequent Delta: ' + consequentDelta + ' delta:' + prevDelta)
+            if (consequentDelta >= 3) {
+                for (j = 0; j < 3; ++j) {
+                    offsets[i - j] += deltaDist;
+                }
+                offset += deltaDist;
+            }
+            prevDelta = deltaDist
+        } else {
+            consequentDelta = 0;
+        }
+    }
+    for (i = 0; i < offsets.length; ++i) {
+        console.log(i + ' dist:' + telemetry.laps[shortLap].data[i][distPosition] + ' offset:' + offsets[i])
+    }
+}
+
 function parseTelemetryData() {
+    
     timePosition = -1;
     distancePosition = -1;
     speedPosition = -1;
@@ -65,7 +154,10 @@ function parseTelemetryData() {
     throttlePosition = -1;
     gearPosition = -1;
     swaPosition = -1;
-
+    damperPosition = -1;
+    gpsLatPosition = -1;
+    gpsLongPosition = -1;
+    
     // analyze format
     for (i = 0; i < telemetry.dataFormat.length; ++i) {
         switch (telemetry.dataFormat[i]) {
@@ -90,6 +182,15 @@ function parseTelemetryData() {
             case 's':
                 swaPosition = i;
                 break;
+            case 'x':
+                gpsLatPosition = i;
+                break;
+            case 'y':
+                gpsLongPosition = i;
+                break;
+            case 'd':
+                damperPosition = i;
+                break;
             default:
                 console.log("Unknown data format:" + telemetry.dataFormat[i])
         }
@@ -97,13 +198,26 @@ function parseTelemetryData() {
     console.assert(timePosition >= 0)
     console.assert(distancePosition >= 0)
     console.assert(speedPosition >= 0)
+
+    //if (telemetry.laps.length == 2 && gpsLatPosition >= 0 && gpsLongPosition >= 0)
+      //  computeOffset(timePosition, distancePosition, gpsLatPosition, gpsLongPosition);
+
+    count = 0
     for (const lap of telemetry.laps) {
         for (const d of lap.data) {
             if (d[distancePosition] > maxDist) {
                 maxDist = d[distancePosition] + 1
             }
+            if (count == 0 && d[distancePosition] > maxDist1) {
+                maxDist1 = d[distancePosition] + 1
+            }
+            if (count == 1 && d[distancePosition] > maxDist2) {
+                maxDist2 = d[distancePosition] + 1
+            }
         }
+        ++count
     }
+
     for (const lap of telemetry.laps) {
         time = Array(maxDist).fill(null)
         speed = Array(maxDist).fill(null)
@@ -111,8 +225,12 @@ function parseTelemetryData() {
         throttle = Array(maxDist).fill(null)
         brake = Array(maxDist).fill(null)
         swa = Array(maxDist).fill(null)
+        damper = Array(maxDist).fill(null)
+        gpsLat = Array(maxDist).fill(null)
+        gpsLong = Array(maxDist).fill(null)
         
         for (const d of lap.data) {
+           // console.log('Chart ' + speedSeries.length + ' dist:' + d[distancePosition] + ' time:' + d[timePosition])
             time[d[distancePosition]] = d[timePosition]
             speed[d[distancePosition]] = d[speedPosition]
             if (gearPosition >= 0)
@@ -123,6 +241,12 @@ function parseTelemetryData() {
                 brake[d[distancePosition]] = d[brakePosition]
             if (swaPosition >= 0)
                 swa[d[distancePosition]] = d[swaPosition]
+            if (damperPosition >=- 0)
+                damper[d[distancePosition]] = d[damperPosition]
+            if (gpsLatPosition >= 0)
+                gpsLat[d[distancePosition]] = d[gpsLatPosition]
+            if (gpsLongPosition >= 0)
+                gpsLong[d[distancePosition]] = d[gpsLongPosition]
         }
         normalizeValues(time)
         normalizeValues(speed)
@@ -134,6 +258,12 @@ function parseTelemetryData() {
             normalizeValues(brake)
         if (swaPosition >= 0)
             normalizeValues(swa)
+        if (damperPosition >= 0)
+            normalizeValues(damper)
+        if (gpsLatPosition >= 0)
+            normalizeValues(gpsLat)
+        if (gpsLongPosition >= 0)
+            normalizeValues(gpsLong)
         
         speedObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: speedChartMouseOver, mouseOut: speedChartMouseOut}} }
@@ -143,6 +273,8 @@ function parseTelemetryData() {
             point: { events: { mouseOver: brakeChartMouseOver, mouseOut: brakeChartMouseOut}} }
         swaObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: swaChartMouseOver, mouseOut: swaChartMouseOut}} }
+        damperObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: damperChartMouseOver, mouseOut: damperChartMouseOut}} }
         gearObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: gearChartMouseOver, mouseOut: gearChartMouseOut}} }
         for (i = 0; i < maxDist; ++i) {
@@ -150,6 +282,7 @@ function parseTelemetryData() {
             throttleObj.data.push([i, throttle[i]])
             brakeObj.data.push([i, brake[i]])
             swaObj.data.push([i, swa[i]])
+            damperObj.data.push([i, damper[i]])
             gearObj.data.push([i, gear[i]])
         }
         speedSeries.push(speedObj)
@@ -157,10 +290,13 @@ function parseTelemetryData() {
         brakeSeries.push(brakeObj)
         gearSeries.push(gearObj)
         swaSeries.push(swaObj)
+        damperSeries.push(damperObj)
         timeSeries.push(time)
+        gpsLatSeries.push(gpsLat)
+        gpsLongSeries.push(gpsLong)
     }
-
-    // Compute TimeDelta
+    // Compute TimeDelta Graph
+    
     if (timeSeries.length == 2) {
         for (i = 0; i < maxDist; ++i) {
             delta = timeSeries[0][i] - timeSeries[1][i]
@@ -205,15 +341,17 @@ function refreshTooltips(srcChart, dstChart, position, enabled) {
     }
 }
 function refreshAllTooltips(srcChart, position, enabled) {
-    refreshTooltips(srcChart, speedChart, position, enabled)
-    refreshTooltips(srcChart, throttleChart, position, enabled)
-    refreshTooltips(srcChart, brakeChart, position, enabled)
-    refreshTooltips(srcChart, gearChart, position, enabled)
-    refreshTooltips(srcChart, swaChart, position, enabled)
-    refreshTooltips(srcChart, speedDeltaChart, position, enabled)
-    refreshTooltips(srcChart, throttleDeltaChart, position, enabled)
-    refreshTooltips(srcChart, brakeDeltaChart, position, enabled)
-    refreshTooltips(srcChart, timeDeltaChart, position, enabled)
+    if (speedEnabled) refreshTooltips(srcChart, speedChart, position, enabled)
+    if (throttleEnabled) refreshTooltips(srcChart, throttleChart, position, enabled)
+    if (brakeEnabled) refreshTooltips(srcChart, brakeChart, position, enabled)
+    if (gearEnabled) refreshTooltips(srcChart, gearChart, position, enabled)
+    if (swaEnabled) refreshTooltips(srcChart, swaChart, position, enabled)
+    if (damperEnabled) refreshTooltips(srcChart, damperChart, position, enabled)
+    if (speedDeltaEnabled) refreshTooltips(srcChart, speedDeltaChart, position, enabled)
+    if (throttleDeltaEnabled) refreshTooltips(srcChart, throttleDeltaChart, position, enabled)
+    if (brakeDeltaEnabled) refreshTooltips(srcChart, brakeDeltaChart, position, enabled)
+    if (timeDeltaEnabled) refreshTooltips(srcChart, timeDeltaChart, position, enabled)
+    drawMap(position)
 }
 function speedChartMouseOver(e) { refreshAllTooltips(speedChart, this.x, true); }
 function speedChartMouseOut(e) { refreshAllTooltips(speedChart, this.x, false); }
@@ -223,6 +361,8 @@ function brakeChartMouseOver(e) { refreshAllTooltips(brakeChart, this.x, true); 
 function brakeChartMouseOut(e) { refreshAllTooltips(brakeChart, this.x, false); }
 function swaChartMouseOver(e) { refreshAllTooltips(swaChart, this.x, true); }
 function swaChartMouseOut(e) { refreshAllTooltips(swaChart, this.x, false); }
+function damperChartMouseOver(e) { refreshAllTooltips(damperChart, this.x, true); }
+function damperChartMouseOut(e) { refreshAllTooltips(damperChart, this.x, false); }
 function gearChartMouseOver(e) { refreshAllTooltips(gearChart, this.x, true); }
 function gearChartMouseOut(e) { refreshAllTooltips(gearChart, this.x, false); }
 function speedDeltaChartMouseOver(e) { refreshAllTooltips(speedDeltaChart, this.x, true); }
@@ -236,14 +376,16 @@ function timeDeltaChartMouseOut(e) { refreshAllTooltips(timeDeltaChart, this.x, 
 
 parseTelemetryData();
 
+
 Highcharts.setOptions({
     colors: [ '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
              '#FF9655', '#FFF263', '#6AF9C4']
 });
-
+  
 speedChart = null;
 throttleChart = null;
 swaChart = null;
+damperChart = null;
 brakeChart = null;
 gearChart = null;
 
@@ -251,6 +393,17 @@ speedDeltaChart = null;
 throttleDeltaChart = null;
 brakeDeltaChart = null;
 timeDeltaChart = null;
+
+speedEnabled = true
+brakeEnabled = true
+throttleEnabled = true
+speedDeltaEnabled = false
+brakeDeltaEnabled = false
+throttleDeltaEnabled = false
+timeDeltaEnabled = true
+gearEnabled = false
+swaEnabled = false
+damperEnabled = false
 
 currentZoom = null;
 
@@ -267,9 +420,10 @@ function displayLapTime(lapData) {
 
 function setSummaryContent() {
     value = telemetry.trackName + '</br>' + metersToKm(maxDist) + '</br>' + telemetry.car + '</br>' + telemetry.date + '</br>' + telemetry.event + '</br>' +
-        telemetry.laps[0].name + ' in ' + displayLapTime(telemetry.laps[0].data) + '</br>';
+        telemetry.laps[0].name + ' in ' + displayLapTime(telemetry.laps[0].data) + ' (' + maxDist1 + 'm)</br>';
     if (telemetry.laps.length == 2) {
-        value += telemetry.laps[1].name + ' in ' + displayLapTime(telemetry.laps[1].data) + '</br>';
+        value += telemetry.laps[1].name + ' in ' + displayLapTime(telemetry.laps[1].data) + ' (' + maxDist2 + 'm)</br>';
+        value += Math.abs(maxDist2 - maxDist1) + ' meters</br>';
     } else {
 	document.getElementById('leftSummaryDiv').innerHTML = 'Track:</br>Length:</br>Car:</br>Date:</br>Event:</br>Lap:</br>Zoom:';
     }
@@ -304,11 +458,14 @@ function updateAllChartZoom(srcChart, min, max) {
     updateOneChartZoom(srcChart, brakeChart, min, max)
     updateOneChartZoom(srcChart, gearChart, min, max)
     updateOneChartZoom(srcChart, swaChart, min, max)
+    updateOneChartZoom(srcChart, damperChart, min, max)
     updateOneChartZoom(srcChart, speedDeltaChart, min, max)
     updateOneChartZoom(srcChart, throttleDeltaChart, min, max)
     updateOneChartZoom(srcChart, brakeDeltaChart, min, max)
     updateOneChartZoom(srcChart, timeDeltaChart, min, max)
     setSummaryContent()
+    drawMap(null)
+
 }
 function applyChartSelection(chart, event) {
     if (event.xAxis != null && event.xAxis[0] != null) {
@@ -320,6 +477,7 @@ function applyChartSelection(chart, event) {
 function speedChartSelection(event) { applyChartSelection(speedChart, event) }
 function throttleChartSelection(event) { applyChartSelection(throttleChart, event) }
 function swaChartSelection(event) { applyChartSelection(swaChart, event) }
+function damperChartSelection(event) { applyChartSelection(damperChart, event) }
 function brakeChartSelection(event) { applyChartSelection(brakeChart, event) }
 function gearChartSelection(event) { applyChartSelection(gearChart, event) }
 function speedDeltaChartSelection(event) { applyChartSelection(speedDeltaChart, event) }
@@ -329,7 +487,8 @@ function timeDeltaChartSelection(event) { applyChartSelection(timeDeltaChart, ev
 
 function createChart(container, title, yAxisTitle, chartSelectionFunction, dataSeries) {
     return Highcharts.chart(container, {
-        chart: { zoomType: 'x', events: { selection: chartSelectionFunction} },
+        chart: { zoomType: 'x', events: { selection: chartSelectionFunction}, spacingBottom: 0, spacingTop: 0},
+        credits: { enabled: false},
         title: { text: title, align: 'left' },
         tooltip: { shared: true},
         xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
@@ -342,6 +501,7 @@ document.addEventListener('DOMContentLoaded', function () {
     speedChart = createChart('speed_container', 'Speed', 'Speed (km/h)', speedChartSelection, speedSeries);
     throttleChart = createChart('throttle_container', 'Throttle', 'Throttle percentage', throttleChartSelection, throttleSeries);
     swaChart = createChart ('swa_container', 'Steering Wheel Angle', 'Angle', swaChartSelection, swaSeries);
+    damperChart = createChart ('damper_container', 'Damper Position', 'Damper', damperChartSelection, damperSeries);
     brakeChart = createChart('brake_container', 'Brake', 'Brake pressure', brakeChartSelection, brakeSeries);
     gearChart = createChart('gear_container', 'Gear', 'Gear', gearChartSelection, gearSeries);
     
@@ -369,9 +529,9 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         document.getElementById('timeDelta_container').style.display = 'none'
         document.getElementById('timeDeltaContainer').style.display = 'none'
-	document.getElementById('speedDeltaContainer').style.display = 'none'
-	document.getElementById('brakeDeltaContainer').style.display = 'none'
-	document.getElementById('throttleDeltaContainer').style.display = 'none'
+	    document.getElementById('speedDeltaContainer').style.display = 'none'
+	    document.getElementById('brakeDeltaContainer').style.display = 'none'
+        document.getElementById('throttleDeltaContainer').style.display = 'none'
     }
 });
 
@@ -396,58 +556,177 @@ window.onload = function (){
     }
   window.addEventListener('keydown', eventHandler, false);
 }
-                          
+
+
+function resizeGraphHeight(size) {
+    for (const graphContainer of ['speed_container', 'brake_container', 'throttle_container', 'speedDelta_container', 'brakeDelta_container', 'throttleDelta_container', 'timeDelta_container', 'gear_container', 'swa_container', 'damper_container']) {
+        document.getElementById(graphContainer).style.height = size + 'px';
+    }
+    speedChart.reflow()
+    throttleChart.reflow()
+    brakeChart.reflow()
+    gearChart.reflow()
+    swaChart.reflow()
+    damperChart.reflow()
+    speedDeltaChart.reflow()
+    throttleDeltaChart.reflow()
+    brakeDeltaChart.reflow()
+    timeDeltaChart.reflow()
+}
+
+function getMapScale() {
+    let left = Infinity, right  = -Infinity;
+    let top  = Infinity, bottom = -Infinity;
+    
+    for (i = 0; i < gpsLatSeries[0].length; ++i) {
+        latitude = gpsLatSeries[0][i];
+        longitude = gpsLongSeries[0][i];
+        if (left   > latitude ) left   = latitude;
+        if (top    > longitude) top    = longitude;
+        if (right  < latitude ) right  = latitude;
+        if (bottom < longitude) bottom = longitude;
+    }
+    return { offsetX: -left, offsetY: -top, scaleX: right - left, scaleY: bottom - top}
+}
+
+function drawMap(position) {
+  if (gpsLatSeries.length == 0 || gpsLongSeries.length == 0)
+      return;
+  let canvas = document.getElementById("mapCanvas")
+  let mapScale = getMapScale();
+  let canvasScale = Math.min(canvas.width, canvas.height);
+  let canvasOffsetX = (canvasScale == canvas.width ? 0 : (canvas.width - canvas.height) / 2);
+  let canvasOffsetY = (canvasScale == canvas.height ? 0 : (canvas.height - canvas.width) / 2);
+  let ctx = canvas.getContext("2d");
+  let margin = 6; // 3 pixel on each side to allow display of the circle
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (i = 0; i < gpsLatSeries[0].length; ++i) {
+      latitude = (gpsLatSeries[0][i] + mapScale.offsetX) / mapScale.scaleX;
+      longitude = (gpsLongSeries[0][i] + mapScale.offsetY) / mapScale.scaleY;
+      let x = canvasOffsetX + latitude  * (canvasScale - margin);
+      let y = canvasOffsetY + longitude * (canvasScale - margin);
+      if (currentZoom != null && i >= currentZoom[0] && i <= currentZoom[1])
+          ctx.fillStyle = "blue";
+      else
+          ctx.fillStyle = "black";
+      ctx.fillRect(x, y, 1, 1);
+  }
+  if (position != null) {
+    latitude = (gpsLatSeries[0][position] + mapScale.offsetX) / mapScale.scaleX;
+    longitude = (gpsLongSeries[0][position] + mapScale.offsetY) / mapScale.scaleY;
+    let x = canvasOffsetX + latitude  * (canvasScale - margin);
+    let y = canvasOffsetY + longitude * (canvasScale - margin);
+
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+    ctx.fillStyle = 'green';
+    ctx.fill();
+ }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     setSummaryContent();
+    drawMap(null)
     document.getElementById('speedConfig').addEventListener('change', (event) => {
-        document.getElementById('speed_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        speedEnabled = event.currentTarget.checked
+        document.getElementById('speed_container').style.display = speedEnabled ? 'block' : 'none'
         speedChart.reflow()
     })
     document.getElementById('brakeConfig').addEventListener('change', (event) => {
-        document.getElementById('brake_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        brakeEnabled = event.currentTarget.checked
+        document.getElementById('brake_container').style.display = brakeEnabled ? 'block' : 'none'
         brakeChart.reflow()
     })
     document.getElementById('throttleConfig').addEventListener('change', (event) => {
-        document.getElementById('throttle_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        throttleEnabled = event.currentTarget.checked
+        document.getElementById('throttle_container').style.display = throttleEnabled ? 'block' : 'none'
         throttleChart.reflow()
     })
     document.getElementById('speedDeltaConfig').addEventListener('change', (event) => {
-        document.getElementById('speedDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        speedDeltaEnabled = event.currentTarget.checked
+        document.getElementById('speedDelta_container').style.display = speedDeltaEnabled ? 'block' : 'none'
         speedDeltaChart.reflow()
     })
     document.getElementById('brakeDeltaConfig').addEventListener('change', (event) => {
-        document.getElementById('brakeDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        brakeDeltaEnabled = event.currentTarget.checked
+        document.getElementById('brakeDelta_container').style.display = brakeDeltaEnabled ? 'block' : 'none'
         brakeDeltaChart.reflow()
     })
     document.getElementById('throttleDeltaConfig').addEventListener('change', (event) => {
-        document.getElementById('throttleDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        throttleDeltaEnabled = event.currentTarget.checked
+        document.getElementById('throttleDelta_container').style.display = throttleDeltaEnabled ? 'block' : 'none'
         throttleDeltaChart.reflow()
     })
     document.getElementById('timeDeltaConfig').addEventListener('change', (event) => {
-        document.getElementById('timeDelta_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        timeDeltaEnabled = event.currentTarget.checked
+        document.getElementById('timeDelta_container').style.display = timeDeltaEnabled ? 'block' : 'none'
         timeDeltaChart.reflow()
     })
     document.getElementById('gearConfig').addEventListener('change', (event) => {
-        document.getElementById('gear_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        gearEnabled = event.currentTarget.checked
+        document.getElementById('gear_container').style.display = gearEnabled ? 'block' : 'none'
         gearChart.reflow()
     })
     document.getElementById('swaConfig').addEventListener('change', (event) => {
-        document.getElementById('swa_container').style.display = event.currentTarget.checked ? 'block' : 'none'
+        swaEnabled = event.currentTarget.checked
+        document.getElementById('swa_container').style.display = swaEnabled ? 'block' : 'none'
         swaChart.reflow()
     })
-    document.getElementById("graphSizeSlider").oninput = function() {
-        for (const graphContainer of ['speed_container', 'brake_container', 'throttle_container', 'speedDelta_container', 'brakeDelta_container', 'throttleDelta_container', 'timeDelta_container', 'gear_container', 'swa_container']) {
-            document.getElementById(graphContainer).style.width = this.value + 'px';
-        }
-        speedChart.reflow()
-        throttleChart.reflow()
-        brakeChart.reflow()
-        gearChart.reflow()
-        swaChart.reflow()
-        speedDeltaChart.reflow()
-        throttleDeltaChart.reflow()
-        brakeDeltaChart.reflow()
-        timeDeltaChart.reflow()
+    document.getElementById('damperConfig').addEventListener('change', (event) => {
+        damperEnabled = event.currentTarget.checked
+        document.getElementById('damper_container').style.display = damperEnabled ? 'block' : 'none'
+        damperChart.reflow()
+    })
+    document.getElementById('smallChartSize').onclick = function() {
+        resizeGraphHeight(150);
+        document.getElementById('smallChartSize').className = "dropdown-item active";
+        document.getElementById('mediumChartSize').className = "dropdown-item ";
+        document.getElementById('largeChartSize').className = "dropdown-item ";
+    }
+    document.getElementById('mediumChartSize').onclick = function() {
+        resizeGraphHeight(300);
+        document.getElementById('smallChartSize').className = "dropdown-item ";
+        document.getElementById('mediumChartSize').className = "dropdown-item active";
+        document.getElementById('largeChartSize').className = "dropdown-item ";
+    }
+    document.getElementById('largeChartSize').onclick = function() {
+        resizeGraphHeight(450);
+        document.getElementById('smallChartSize').className = "dropdown-item ";
+        document.getElementById('mediumChartSize').className = "dropdown-item ";
+        document.getElementById('largeChartSize').className = "dropdown-item active";
+    }
+    // Display sub-menus
+    
+    // make it as accordion for smaller screens
+    if (window.innerWidth < 992) {
+
+      // close all inner dropdowns when parent is closed
+      document.querySelectorAll('.navbar .dropdown').forEach(function(everydropdown){
+        everydropdown.addEventListener('hidden.bs.dropdown', function () {
+          // after dropdown is hidden, then find all submenus
+            this.querySelectorAll('.submenu').forEach(function(everysubmenu){
+              // hide every submenu as well
+              everysubmenu.style.display = 'none';
+            });
+        })
+      });
+
+      document.querySelectorAll('.dropdown-menu a').forEach(function(element){
+        element.addEventListener('click', function (e) {
+            let nextEl = this.nextElementSibling;
+            if(nextEl && nextEl.classList.contains('submenu')) {
+              // prevent opening link if link needs to open dropdown
+              e.preventDefault();
+              if(nextEl.style.display == 'block'){
+                nextEl.style.display = 'none';
+              } else {
+                nextEl.style.display = 'block';
+              }
+
+            }
+        });
+      })
     }
 });
 
