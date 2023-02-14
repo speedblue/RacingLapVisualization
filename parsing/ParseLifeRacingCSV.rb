@@ -9,6 +9,7 @@ class Lap
     @_toImport = import
     @_name = name
     @_hash = {}
+    @_maxDist = 0
   end
 
   def import?
@@ -17,6 +18,9 @@ class Lap
   
   def add(time, distance, speed, gear, rpm, throttle, brake, swa, damper, gpsLat, gpsLong)
     @_endTime = time
+    if distance > @_maxDist
+      @_maxDist = distance
+    end
     distanceString = distance.to_s
     if @_hash.has_key?(distanceString)
       @_hash[distanceString].add(time - @_startTime, speed, gear, rpm, throttle, brake, swa, damper, gpsLat, gpsLong)
@@ -32,6 +36,9 @@ class Lap
   end
   def getData
     return @_hash
+  end
+  def getMaxDist
+    return @_maxDist
   end
   def getLapTime
     sec = @_endTime - @_startTime
@@ -140,7 +147,7 @@ while i < ARGV.size do
       laps[lap] = Lap.new(lap, lap.to_i == lapToImport, name, row['Time'].to_f)
       refDist = dist
     end
-    laps[lap].add(row['Time'].to_f, dist - refDist, row[' vehicleSpeed'].to_f, row[' gear'], row[' rpm'].to_i, row[' ppsA'].to_f, row[' bpf'].to_f, row[' swa'].to_f, row[' frDamper'].to_f, row[' gpsLat'].to_f, row[' gpsLong'].to_f)
+    laps[lap].add(row['Time'].to_f, dist - refDist, row[' vehicleSpeed'].to_f, row[' gear'], row[' rpm'].to_i, row[' ppsA'].to_f, row[' bpf'].to_f, row[' swa'].to_f, row[' frDamper'].to_f, row[' gpsLat'].to_f / 60.0, row[' gpsLong'].to_f / 60.0)
   end
   i += 3
 end
@@ -152,7 +159,7 @@ out.write("trackName: \"TRACK\",")
 out.write("car: \"CAR\",")
 out.write("event: \"EVENT\",")
 out.write("date: \"DATE\",")
-out.write("dataFormat: \"DTSgtbs\",");
+out.write("dataFormat: \"DTSgtbsxyd\",");
 out.write ("laps: [");
 firstLap=true
 laps.each do | lap, v |
@@ -169,13 +176,13 @@ laps.each do | lap, v |
       else
         out.write(",[")
       end
-      out.write("%d,%.3f,%.1f,%d,%.1f,%.1f,%.2f" % [dist, data.getTime, data.getSpeed, data.getGear, data.getThrottle, data.getBrake, data.getSWA])
+      out.write("%d,%.3f,%.1f,%d,%.1f,%.1f,%.2f,%f,%f,%2f" % [dist, data.getTime, data.getSpeed, data.getGear, data.getThrottle, data.getBrake, data.getSWA, data.getLat, data.getLong, data.getDamper])
       out.write("]")
       firstData = false
     end
     out.write("]}")
   end
-  puts "lap:%d time:%s imported:%s" % [lap, v.getLapTime, v.import?.to_s]
+  puts "lap:%d time:%s dist:%d  imported:%s" % [lap, v.getLapTime, v.getMaxDist, v.import?.to_s]
 end
 out.write("]}")
 out.close()
