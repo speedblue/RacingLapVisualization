@@ -679,19 +679,19 @@ document.addEventListener('DOMContentLoaded', function () {
         damperChart.reflow()
     })
     document.getElementById('smallChartSize').onclick = function() {
-        resizeGraphHeight(150);
+        resizeGraphHeight(110);
         document.getElementById('smallChartSize').className = "dropdown-item active";
         document.getElementById('mediumChartSize').className = "dropdown-item ";
         document.getElementById('largeChartSize').className = "dropdown-item ";
     }
     document.getElementById('mediumChartSize').onclick = function() {
-        resizeGraphHeight(300);
+        resizeGraphHeight(160);
         document.getElementById('smallChartSize').className = "dropdown-item ";
         document.getElementById('mediumChartSize').className = "dropdown-item active";
         document.getElementById('largeChartSize').className = "dropdown-item ";
     }
     document.getElementById('largeChartSize').onclick = function() {
-        resizeGraphHeight(450);
+        resizeGraphHeight(210);
         document.getElementById('smallChartSize').className = "dropdown-item ";
         document.getElementById('mediumChartSize').className = "dropdown-item ";
         document.getElementById('largeChartSize').className = "dropdown-item active";
