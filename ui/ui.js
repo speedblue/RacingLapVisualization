@@ -150,6 +150,7 @@ function parseTelemetryData() {
     }
 
     offsetRecall = 0
+    shortLap = -1
     if (telemetry.laps.length == 2 && gpsLatPosition >= 0 && gpsLongPosition >= 0) {
         // Compute offset
         shortLap = maxDist1 < maxDist2 ? 0 : 1;
@@ -472,10 +473,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                          data: timeDeltaData } ])
     } else {
         document.getElementById('timeDelta_container').style.display = 'none'
-        document.getElementById('timeDeltaContainer').style.display = 'none'
-	    document.getElementById('speedDeltaContainer').style.display = 'none'
-	    document.getElementById('brakeDeltaContainer').style.display = 'none'
-        document.getElementById('throttleDeltaContainer').style.display = 'none'
+	    document.getElementById('speedDelta_container').style.display = 'none'
+	    document.getElementById('brakeDelta_container').style.display = 'none'
+        document.getElementById('throttleDelta_container').style.display = 'none'
     }
 });
 
