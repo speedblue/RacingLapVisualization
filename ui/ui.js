@@ -731,7 +731,6 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // make it as accordion for smaller screens
     if (window.innerWidth < 992) {
-console.log("TODO")
       // close all inner dropdowns when parent is closed
       document.querySelectorAll('.navbar .dropdown').forEach(function(everydropdown){
         everydropdown.addEventListener('hidden.bs.dropdown', function () {
