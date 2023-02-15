@@ -482,16 +482,41 @@ document.addEventListener('DOMContentLoaded', function () {
 // Navigation by left/right key in the graphs when zoom is active
 window.onload = function (){
     eventHandler = function (e) {
+        // Handle graph sync
+        if (e.ctrlKey && keyCode == 37) { // Ctrl Left
+
+        } else if (e.ctrlKey && keyCode == 39) { // Ctrl Right
+            for (i = 0; i < speedSeries[0].data.length; ++i) {
+                speedSeries[0].data[i][1] = (0.9 * speedSeries[0].data[i][1]);
+            }
+            speedChart.series[0].setData(speedSeries[0].data)
+            console.log('REDRAW:' + speedSeries[0].data.length + ' Orig:' + speedSeries[0].data[0][1])
+        }
+        
+        // Zoom in
+        if (e.keyCode == 187) { // + key
+            if (currentZoom == null) {
+                navigationIncrement = 0.25 * maxDist
+                updateAllChartZoom(null, (navigationIncrement / 2), maxDist - (navigationIncrement / 2))
+            } else {
+                navigationIncrement = Math.round(0.25 * (currentZoom[1] - currentZoom[0]));
+                updateAllChartZoom(null, currentZoom[0] + navigationIncrement / 2, currentZoom[1] - navigationIncrement / 2);
+            }
+        }
+        // Zoom handling via Left/Right/- keys
         if (currentZoom == null)
             return;
-        navigationIncrement = 0.25 * (currentZoom[1] - currentZoom[0]); // Replace 1/4 of the screen
-        if (e.keyCode == 37) {
+        navigationIncrement = Math.round(0.25 * (currentZoom[1] - currentZoom[0])); // going left/right by 1/4, zooming out by 25%
+        if (e.keyCode == 189) { // - key
+            left = (currentZoom[0] < (navigationIncrement / 2)) ? 0 : currentZoom[0] - (navigationIncrement / 2);
+            right = ((currentZoom[1] + (navigationIncrement / 2)) > maxDist) ? maxDist : currentZoom[1] + (navigationIncrement / 2);
+            updateAllChartZoom(null, left, right);
+        } else if (!e.ctrlKey && e.keyCode == 37) { // Left
             if (currentZoom[0] > navigationIncrement)
                 updateAllChartZoom(null, currentZoom[0] - navigationIncrement, currentZoom[1] - navigationIncrement);
             else
                 updateAllChartZoom(null, 0, currentZoom[1] - currentZoom[0]);
-        }
-        if (e.keyCode == 39) {
+        } else if (!e.ctrlKey && e.keyCode == 39) { // Right
             if (currentZoom[1] + navigationIncrement < maxDist)
                 updateAllChartZoom(null, currentZoom[0] + navigationIncrement, currentZoom[1] + navigationIncrement);
             else
