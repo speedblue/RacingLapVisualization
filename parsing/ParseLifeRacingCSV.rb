@@ -140,7 +140,12 @@ i = 0
 while i < ARGV.size do
   lapToImport = ARGV[i + 1].to_i
   name = ARGV[i + 2]
-  CSV.foreach(ARGV[i], :headers => true) do |row|
+  fd = File.open(ARGV[i], "r")
+  fd.readline # skip name of original LRD
+  fd.readline # skip frequency
+  fd.readline # skip empty line
+  csv = CSV.new(fd.read, :headers => true)
+  csv.each do |row|
     lap = (row[' lapCount'].to_i + i * 100).to_s
     dist = (row[' distance_LV'].to_f * 1000).to_i
     if not laps.has_key?(lap)
@@ -149,6 +154,7 @@ while i < ARGV.size do
     end
     laps[lap].add(row['Time'].to_f, dist - refDist, row[' vehicleSpeed'].to_f, row[' gear'], row[' rpm'].to_i, row[' ppsA'].to_f, row[' bpf'].to_f, row[' swa'].to_f, row[' frDamper'].to_f, row[' gpsLat'].to_f / 60.0, row[' gpsLong'].to_f / 60.0)
   end
+  fd.close()
   i += 3
 end
 
