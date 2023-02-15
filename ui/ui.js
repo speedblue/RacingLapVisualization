@@ -479,22 +479,82 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+secondLapOffset = 0;
+origSpeedSeries2 = Array()
+newSpeedSeries2 = Array()
+origBrakeSeries2 = Array()
+newBrakeSeries2 = Array()
+origThrottleSeries2 = Array()
+newThrottleSeries2 = Array()
+origDamperSeries2 = Array()
+newDamperSeries2 = Array()
+
+function offsetSecondLapGraphes() {
+    if (speedChart.series.length != 2)
+        return;
+    if (origSpeedSeries2.length == 0) {
+        // First instance, copy orig data
+        for (i = 0; i < maxDist; ++i) {
+            newSpeedSeries2.push([i, 0]);
+            newBrakeSeries2.push([i, 0]);
+            newThrottleSeries2.push([i, 0]);
+            newDamperSeries2.push([i, 0])
+            origSpeedSeries2.push([i, speedSeries[1].data[i][1]])
+            origBrakeSeries2.push([i, brakeSeries[1].data[i][1]])
+            origThrottleSeries2.push([i, throttleSeries[1].data[i][1]])
+            origDamperSeries2.push([i, damperSeries[1].data[i][1]])
+        }
+    }
+    for (i = 0; i < maxDist; ++i) {
+        newPos = i + secondLapOffset;
+        if (newPos < 0) {
+            newPos = maxDist + newPos
+        } else if (newPos >= maxDist) {
+            newPos = newPos % maxDist
+        }
+        newSpeedSeries2[newPos][1] = origSpeedSeries2[i][1]
+        newBrakeSeries2[newPos][1] = origBrakeSeries2[i][1]
+        newThrottleSeries2[newPos][1] = origThrottleSeries2[i][1]
+        newDamperSeries2[newPos][1] = origDamperSeries2[i][1]
+    }
+    speedChart.series[1].setData(newSpeedSeries2)
+    brakeChart.series[1].setData(newBrakeSeries2)
+    throttleChart.series[1].setData(newThrottleSeries2)
+    damperChart.series[1].setData(newDamperSeries2)
+    damperChart.redraw();
+}
+function resetSecondLapGraphes() {
+    secondLapOffset = 0;
+    if (speedChart.series.length != 2)
+        return;
+    speedChart.series[1].setData(origSpeedSeries2)
+    brakeChart.series[1].setData(origBrakeSeries2)
+    throttleChart.series[1].setData(origThrottleSeries2)
+    damperChart.series[1].setData(origDamperSeries2)
+}
+function moveSecondLapLeft() {
+    --secondLapOffset;
+    offsetSecondLapGraphes()
+}
+function moveSecondLapRight() {
+    ++secondLapOffset;
+    offsetSecondLapGraphes()
+}
+
 // Navigation by left/right key in the graphs when zoom is active
 window.onload = function (){
     eventHandler = function (e) {
         // Handle graph sync
-        if (e.ctrlKey && keyCode == 37) { // Ctrl Left
-
-        } else if (e.ctrlKey && keyCode == 39) { // Ctrl Right
-            for (i = 0; i < speedSeries[0].data.length; ++i) {
-                speedSeries[0].data[i][1] = (0.9 * speedSeries[0].data[i][1]);
-            }
-            speedChart.series[0].setData(speedSeries[0].data)
-            console.log('REDRAW:' + speedSeries[0].data.length + ' Orig:' + speedSeries[0].data[0][1])
-        }
-        
-        // Zoom in
-        if (e.keyCode == 187) { // + key
+        if (e.shiftKey && e.keyCode == 37) { // Shift Left
+            moveSecondLapLeft();
+            return;
+        } else if (e.shiftKey && e.keyCode == 39) { // Shift Right
+            moveSecondLapRight();
+            return;
+        } else if (e.shiftKey && e.keyCode == 82) { // Shift r
+            resetSecondLapGraphes();
+            return;
+        } else if (e.keyCode == 187) { // + key
             if (currentZoom == null) {
                 navigationIncrement = 0.25 * maxDist
                 updateAllChartZoom(null, (navigationIncrement / 2), maxDist - (navigationIncrement / 2))
@@ -502,7 +562,9 @@ window.onload = function (){
                 navigationIncrement = Math.round(0.25 * (currentZoom[1] - currentZoom[0]));
                 updateAllChartZoom(null, currentZoom[0] + navigationIncrement / 2, currentZoom[1] - navigationIncrement / 2);
             }
+            return;
         }
+        
         // Zoom handling via Left/Right/- keys
         if (currentZoom == null)
             return;
@@ -511,12 +573,12 @@ window.onload = function (){
             left = (currentZoom[0] < (navigationIncrement / 2)) ? 0 : currentZoom[0] - (navigationIncrement / 2);
             right = ((currentZoom[1] + (navigationIncrement / 2)) > maxDist) ? maxDist : currentZoom[1] + (navigationIncrement / 2);
             updateAllChartZoom(null, left, right);
-        } else if (!e.ctrlKey && e.keyCode == 37) { // Left
+        } else if (!e.shiftKey && e.keyCode == 37) { // Left
             if (currentZoom[0] > navigationIncrement)
                 updateAllChartZoom(null, currentZoom[0] - navigationIncrement, currentZoom[1] - navigationIncrement);
             else
                 updateAllChartZoom(null, 0, currentZoom[1] - currentZoom[0]);
-        } else if (!e.ctrlKey && e.keyCode == 39) { // Right
+        } else if (!e.shiftKey && e.keyCode == 39) { // Right
             if (currentZoom[1] + navigationIncrement < maxDist)
                 updateAllChartZoom(null, currentZoom[0] + navigationIncrement, currentZoom[1] + navigationIncrement);
             else
@@ -669,33 +731,33 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // make it as accordion for smaller screens
     if (window.innerWidth < 992) {
-
+console.log("TODO")
       // close all inner dropdowns when parent is closed
       document.querySelectorAll('.navbar .dropdown').forEach(function(everydropdown){
         everydropdown.addEventListener('hidden.bs.dropdown', function () {
           // after dropdown is hidden, then find all submenus
             this.querySelectorAll('.submenu').forEach(function(everysubmenu){
               // hide every submenu as well
-              everysubmenu.style.display = 'none';
+              //everysubmenu.style.display = 'none';
             });
         })
       });
-
-      document.querySelectorAll('.dropdown-menu a').forEach(function(element){
-        element.addEventListener('click', function (e) {
-            let nextEl = this.nextElementSibling;
-            if(nextEl && nextEl.classList.contains('submenu')) {
-              // prevent opening link if link needs to open dropdown
-              e.preventDefault();
-              if(nextEl.style.display == 'block'){
-                nextEl.style.display = 'none';
-              } else {
-                nextEl.style.display = 'block';
-              }
-
-            }
-        });
-      })
-    }
+        document.querySelectorAll('.dropdown-menu a').forEach(function(element){
+            
+            element.addEventListener('click', function (e) {
+                e.stopPropagation();
+                let nextEl = this.nextElementSibling;
+                if(nextEl && nextEl.classList.contains('submenu')) {
+                    //e.preventDefault();
+                    if(nextEl.style.display == 'block'){
+                        nextEl.style.display = 'none';
+                    } else {
+                        nextEl.style.display = 'block';
+                    }
+                    this.style.display = 'block';
+                }
+            });
+        })
+    };
 });
 
