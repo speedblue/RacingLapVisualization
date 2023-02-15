@@ -133,7 +133,7 @@ out.write("trackName: \"TRACK\",")
 out.write("car: \"CAR\",")
 out.write("event: \"EVENT\",")
 out.write("date: \"DATE\",")
-out.write("dataFormat: \"DTSgtbs\",");
+out.write("dataFormat: \"DTSgtbsxy\",");
 out.write ("laps: [");
 firstLap=true
 laps.each do | lap, v |
@@ -150,7 +150,7 @@ laps.each do | lap, v |
       else
         out.write(",[")
       end
-      out.write("%d,%.3f,%.1f,%d,%.1f,%.1f,%.2f" % [dist, data.getTime, data.getSpeed, data.getGear, data.getThrottle, data.getBrake, data.getSWA])
+      out.write("%d,%.3f,%.1f,%d,%.1f,%.1f,%.2f,%f,%f" % [dist, data.getTime, data.getSpeed, data.getGear, data.getThrottle, data.getBrake, data.getSWA, data.getLat, data.getLong])
       out.write("]")
       firstData = false
     end
