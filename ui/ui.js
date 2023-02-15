@@ -77,73 +77,6 @@ function computeDistance(lat1, lon1, lat2, lon2)
 
     return R * c; // in metres
 }
-function computeOffset(timePosition, distPosition, gpsLatPosition, gpsLongPosition)
-{
-    // Detect long/short laps
-    l1Max = 0
-    for (const d of telemetry.laps[0].data) {
-        if (d[distPosition] > l1Max)
-            l1Max = d[distPosition];
-    }
-    l2Max = 0
-    for (const d of telemetry.laps[1].data) {
-        if (d[distPosition] > l2Max)
-            l2Max = d[distPosition];
-    }
-    shortLap = (l1Max <= l2Max) ? 0 : 1
-    longLap = (l1Max <= l2Max) ? 1 : 0
-
-    offsets = Array(telemetry.laps[shortLap].data.length).fill(0)
-    offset = 0
-    prevDelta = 0;
-    consequentDelta = 0;
-    
-    for (i = 0; i < telemetry.laps[shortLap].data.length; ++i) {
-        d1 = telemetry.laps[shortLap].data[i];
-        d1Dist = d1[distPosition] + offset;
-        offsets[i] = offset;
-        found = false
-        for (j = 0; !found && j < telemetry.laps[longLap].data.length; ++j) {
-            d2 = telemetry.laps[longLap].data[j];
-            if (Math.abs(d2[distPosition] - d1Dist) <= 1) // Only compare +/- 1 meters
-                found = true
-        }
-        minDistance = 1000000;
-        min = -1;
-        for (j = 0; found && j < telemetry.laps[longLap].data.length; ++j) {
-            d2 = telemetry.laps[longLap].data[j];
-            if (d2[distPosition] > d1Dist && (d2[distPosition] - d1Dist) < 10) { // Maximum 10 meters delta
-                delta = computeDistance(d1[gpsLatPosition], d1[gpsLongPosition], d2[gpsLatPosition], d2[gpsLongPosition])
-                if (delta < minDistance) {
-                    minDistance = delta;
-                    min = j;
-                }
-            }
-        }
-        if (found && d1Dist != telemetry.laps[longLap].data[min][distPosition]) {
-            deltaDist = Math.abs(telemetry.laps[longLap].data[min][distPosition] - d1Dist)
-            if (prevDelta == deltaDist) {
-                ++consequentDelta;
-            } else {
-                consequentDelta = 1;
-            }
-
-            console.log (i + ' Consequent Delta: ' + consequentDelta + ' delta:' + prevDelta)
-            if (consequentDelta >= 3) {
-                for (j = 0; j < 3; ++j) {
-                    offsets[i - j] += deltaDist;
-                }
-                offset += deltaDist;
-            }
-            prevDelta = deltaDist
-        } else {
-            consequentDelta = 0;
-        }
-    }
-    for (i = 0; i < offsets.length; ++i) {
-        console.log(i + ' dist:' + telemetry.laps[shortLap].data[i][distPosition] + ' offset:' + offsets[i])
-    }
-}
 
 function parseTelemetryData() {
     
@@ -199,8 +132,6 @@ function parseTelemetryData() {
     console.assert(distancePosition >= 0)
     console.assert(speedPosition >= 0)
 
-    //if (telemetry.laps.length == 2 && gpsLatPosition >= 0 && gpsLongPosition >= 0)
-      //  computeOffset(timePosition, distancePosition, gpsLatPosition, gpsLongPosition);
 
     count = 0
     for (const lap of telemetry.laps) {
@@ -218,7 +149,15 @@ function parseTelemetryData() {
         ++count
     }
 
-    for (const lap of telemetry.laps) {
+    offsetRecall = 0
+    if (telemetry.laps.length == 2 && gpsLatPosition >= 0 && gpsLongPosition >= 0) {
+        // Compute offset
+        shortLap = maxDist1 < maxDist2 ? 0 : 1;
+        offsetRecall = Math.abs(maxDist2 - maxDist1) / maxDist
+    }
+
+    for (pos = 0; pos < telemetry.laps.length; ++pos) {
+        lap = telemetry.laps[pos]
         time = Array(maxDist).fill(null)
         speed = Array(maxDist).fill(null)
         gear = Array(maxDist).fill(null)
@@ -230,24 +169,29 @@ function parseTelemetryData() {
         gpsLong = Array(maxDist).fill(null)
         
         for (const d of lap.data) {
-           // console.log('Chart ' + speedSeries.length + ' dist:' + d[distancePosition] + ' time:' + d[timePosition])
-            time[d[distancePosition]] = d[timePosition]
-            speed[d[distancePosition]] = d[speedPosition]
+           
+            dist = d[distancePosition];
+            if (pos == shortLap)
+                dist += Math.round(d[distancePosition] * offsetRecall)
+            console.assert(dist < maxDist);
+            time[dist] = d[timePosition]
+            speed[dist] = d[speedPosition]
             if (gearPosition >= 0)
-                gear[d[distancePosition]] = d[gearPosition]
+                gear[dist] = d[gearPosition]
             if (throttlePosition >= 0)
-                throttle[d[distancePosition]] = d[throttlePosition]
+                throttle[dist] = d[throttlePosition]
             if (brakePosition >= 0)
-                brake[d[distancePosition]] = d[brakePosition]
+                brake[dist] = d[brakePosition]
             if (swaPosition >= 0)
-                swa[d[distancePosition]] = d[swaPosition]
+                swa[dist] = d[swaPosition]
             if (damperPosition >=- 0)
-                damper[d[distancePosition]] = d[damperPosition]
+                damper[dist] = d[damperPosition]
             if (gpsLatPosition >= 0)
-                gpsLat[d[distancePosition]] = d[gpsLatPosition]
+                gpsLat[dist] = d[gpsLatPosition]
             if (gpsLongPosition >= 0)
-                gpsLong[d[distancePosition]] = d[gpsLongPosition]
+                gpsLong[dist] = d[gpsLongPosition]
         }
+
         normalizeValues(time)
         normalizeValues(speed)
         if (gearPosition >= 0)
