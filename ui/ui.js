@@ -437,8 +437,9 @@ function createChart(container, title, yAxisTitle, chartSelectionFunction, dataS
         title: { text: title, align: 'left' },
         tooltip: { shared: true},
         xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: yAxisTitle } },
+        yAxis: { title: { text: yAxisTitle }, tickAmount:10, tickAmount:10 },
         legend: { enabled: false },
+	alignTicks:false,
         series: dataSeries
     });
 }
