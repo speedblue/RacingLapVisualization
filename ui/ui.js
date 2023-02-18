@@ -554,7 +554,7 @@ window.onload = function (){
         } else if (e.shiftKey && e.keyCode == 82) { // Shift r
             resetSecondLapGraphes();
             return;
-        } else if (e.keyCode == 187) { // + key
+        } else if (e.keyCode == 187 || e.keyCode == 107) { // + key
             if (currentZoom == null) {
                 navigationIncrement = 0.25 * maxDist
                 updateAllChartZoom(null, (navigationIncrement / 2), maxDist - (navigationIncrement / 2))
@@ -569,7 +569,7 @@ window.onload = function (){
         if (currentZoom == null)
             return;
         navigationIncrement = Math.round(0.25 * (currentZoom[1] - currentZoom[0])); // going left/right by 1/4, zooming out by 25%
-        if (e.keyCode == 189) { // - key
+        if (e.keyCode == 189 || e.keyCode == 109) { // - key
             left = (currentZoom[0] < (navigationIncrement / 2)) ? 0 : currentZoom[0] - (navigationIncrement / 2);
             right = ((currentZoom[1] + (navigationIncrement / 2)) > maxDist) ? maxDist : currentZoom[1] + (navigationIncrement / 2);
             updateAllChartZoom(null, left, right);
@@ -731,6 +731,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // make it as accordion for smaller screens
     if (window.innerWidth < 992) {
+
       // close all inner dropdowns when parent is closed
       document.querySelectorAll('.navbar .dropdown').forEach(function(everydropdown){
         everydropdown.addEventListener('hidden.bs.dropdown', function () {
