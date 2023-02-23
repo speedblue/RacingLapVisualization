@@ -127,14 +127,10 @@ while i < ARGV.size do
 end
 
 #display results
-out = File.open("output.js", "w")
-out.write("telemetry = {")
-out.write("trackName: \"TRACK\",")
-out.write("car: \"CAR\",")
-out.write("event: \"EVENT\",")
-out.write("date: \"DATE\",")
-out.write("dataFormat: \"DTSgtbsxy\",");
-out.write ("laps: [");
+out = File.open("output.json", "w")
+out.write("{")
+out.write("\"dataFormat\": \"DTSgtbsxy\",");
+out.write ("\"laps\": [");
 firstLap=true
 laps.each do | lap, v |
   if v.import?
