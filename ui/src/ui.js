@@ -6,6 +6,71 @@ const chartSmallSize = 110;
 const chartMediumSize = 160;
 const chartLargeSize = 210;
 
+var settings = {
+    chartSize: "small",
+    speedChart: boolEnabled,
+    throttleChart: boolEnabled,
+    brakeChart: boolEnabled,
+    gearChart: boolDisabled,
+    swaChart: boolDisabled,
+    damperChart: boolDisabled,
+    timeDeltaChart: boolEnabled,
+    speedDeltaChart: boolDisabled,
+    throttleDeltaChart: boolDisabled,
+    brakeDeltaChart: boolDisabled,
+    driver: "Julien Lemoine",
+    track: "Valencia",
+    date: "2023-02-19",
+    event: "GTWS"
+}
+
+Highcharts.setOptions({
+    colors: [ '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
+             '#FF9655', '#FFF263', '#6AF9C4']
+});
+
+var telemetryData = null;
+var speedChart = null;
+var throttleChart = null;
+var swaChart = null;
+var damperChart = null;
+var brakeChart = null;
+var gearChart = null;
+
+var speedDeltaChart = null;
+var throttleDeltaChart = null;
+var brakeDeltaChart = null;
+var timeDeltaChart = null;
+
+var speedEnabled = true
+var brakeEnabled = true
+var throttleEnabled = true
+var speedDeltaEnabled = false
+var brakeDeltaEnabled = false
+var throttleDeltaEnabled = false
+var timeDeltaEnabled = true
+var gearEnabled = false
+var swaEnabled = false
+var damperEnabled = false
+
+var currentZoom = null;
+
+var base = null
+var speedSeries = []
+var throttleSeries = []
+var brakeSeries = []
+var gearSeries = []
+var timeSeries = []
+var gpsLatSeries = []
+var gpsLongSeries = []
+var swaSeries = []
+var damperSeries = []
+var maxDist = 0
+var maxDist1 = 0
+var maxDist2 = 0
+var timeDeltaData = []
+var baseEntries = []
+
 // Scan the array and remplace empty values by the most accurate value (averrage of left + right values)
 function normalizeValues(array) {
     // Fill left
@@ -55,21 +120,6 @@ function computeDeltaSurface(data1, data2) {
     return data;
 }
 
-var base = null
-var speedSeries = []
-var throttleSeries = []
-var brakeSeries = []
-var gearSeries = []
-var timeSeries = []
-var gpsLatSeries = []
-var gpsLongSeries = []
-var swaSeries = []
-var damperSeries = []
-var maxDist = 0
-var maxDist1 = 0
-var maxDist2 = 0
-var timeDeltaData = []
-
 function computeDistance(lat1, lon1, lat2, lon2)
 {
     const R = 6371e3; // metres
@@ -86,7 +136,7 @@ function computeDistance(lat1, lon1, lat2, lon2)
     return R * c; // in metres
 }
 
-function parseTelemetryData() {
+function parseTelemetryData(telemetry) {
     
     var timePosition = -1;
     var distancePosition = -1;
@@ -326,39 +376,6 @@ function brakeDeltaChartMouseOut(e) { refreshAllTooltips(brakeDeltaChart, this.x
 function timeDeltaChartMouseOver(e) { refreshAllTooltips(timeDeltaChart, this.x, true); }
 function timeDeltaChartMouseOut(e) { refreshAllTooltips(timeDeltaChart, this.x, false); }
 
-parseTelemetryData();
-
-
-Highcharts.setOptions({
-    colors: [ '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
-             '#FF9655', '#FFF263', '#6AF9C4']
-});
-  
-var speedChart = null;
-var throttleChart = null;
-var swaChart = null;
-var damperChart = null;
-var brakeChart = null;
-var gearChart = null;
-
-var speedDeltaChart = null;
-var throttleDeltaChart = null;
-var brakeDeltaChart = null;
-var timeDeltaChart = null;
-
-var speedEnabled = true
-var brakeEnabled = true
-var throttleEnabled = true
-var speedDeltaEnabled = false
-var brakeDeltaEnabled = false
-var throttleDeltaEnabled = false
-var timeDeltaEnabled = true
-var gearEnabled = false
-var swaEnabled = false
-var damperEnabled = false
-
-var currentZoom = null;
-
 function metersToKm(value) {
     var res = Math.floor(value / 1000) + '.';
     var meters = Math.floor(value % 1000)
@@ -377,10 +394,12 @@ function displayLapTime(lapData) {
 }
 
 function setSummaryContent() {
-    var value = telemetry.trackName + '</br>' + metersToKm(maxDist) + '</br>' + telemetry.car + '</br>' + telemetry.date + '</br>' + telemetry.event + '</br>' +
-        telemetry.laps[0].name + ' in ' + displayLapTime(telemetry.laps[0].data) + ' (' + maxDist1 + 'm)</br>';
-    if (telemetry.laps.length == 2) {
-        value += telemetry.laps[1].name + ' in ' + displayLapTime(telemetry.laps[1].data) + ' (' + maxDist2 + 'm)</br>';
+    if (telemetryData == null)
+        return;
+    var value = settings.track + '</br>' + metersToKm(maxDist) + '</br>' + settings.car + '</br>' + settings.date + '</br>' + settings.event + '</br>' +
+        telemetryData.laps[0].name + ' in ' + displayLapTime(telemetryData.laps[0].data) + ' (' + maxDist1 + 'm)</br>';
+    if (telemetryData.laps.length == 2) {
+        value += telemetryData.laps[1].name + ' in ' + displayLapTime(telemetryData.laps[1].data) + ' (' + maxDist2 + 'm)</br>';
         value += Math.abs(maxDist2 - maxDist1) + ' meters</br>';
     } else {
 	document.getElementById('leftSummaryDiv').innerHTML = 'Track:</br>Length:</br>Car:</br>Date:</br>Event:</br>Lap:</br>Zoom:';
@@ -442,86 +461,6 @@ function speedDeltaChartSelection(event) { applyChartSelection(speedDeltaChart, 
 function throttleDeltaChartSelection(event) { applyChartSelection(throttleDeltaChart, event)}
 function brakeDeltaChartSelection(event) { applyChartSelection(brakeDeltaChart, event)}
 function timeDeltaChartSelection(event) { applyChartSelection(timeDeltaChart, event)}
-
-function createChart(container, title, yAxisTitle, chartSelectionFunction, dataSeries) {
-    return Highcharts.chart(container, {
-        chart: { zoomType: 'x', events: { selection: chartSelectionFunction}, spacingBottom: 0, spacingTop: 0},
-        credits: { enabled: false},
-        title: { text: title, align: 'left' },
-        tooltip: { shared: true},
-        xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: yAxisTitle }, tickPixelInterval: 20, minPadding: 0.01, maxPadding: 0.01, tickPosition: "inside" },
-        legend: { enabled: false },
-	alignTicks: false,
-        series: dataSeries
-    });
-}
-document.addEventListener('DOMContentLoaded', function () {
-    base = new Airtable({ apiKey: 'patJgI1nadq27UoBY.c6ba5356a52c3b40232468deeaec4b03de7a8fade952f26284a808ad7c0c4be2' }).base('app2TznoMYSMoNc3j');
-
-    base('Main').select({maxRecords: 5000, view: "Grid view"}).eachPage(function page(records, fetchNextPage) {
-      // This function (`page`) will get called for each page of records.
-	records.forEach(function(record) {
-	    var telemetryData = record.get('Telemetry');
-	    if (telemetryData != null  && telemetryData[0]['filename'] == 'telemetry.json') {
-               console.log('Scan DriverName', record.get('DriverName'));
-	       console.log('Scan Date', record.get('Date'));
-	       console.log('Scan:' +  record.id);
-  	       fetch(telemetryData[0]['url']).then((response) => response.json()).then((json) => console.log(json));
-	   }
-      });
-      // To fetch the next page of records, call `fetchNextPage`.
-      // If there are more records, `page` will get called again.
-      // If there are no more records, `done` will get called.
-      fetchNextPage();
-
-    }, function done(err) {
-      if (err) { console.error(err); return; }
-    });
-
-    console.log(window.location.search)
-    const params = new Proxy(new URLSearchParams(window.location.search), {
-	get: (searchParams, prop) => searchParams.get(prop),
-    });
-    // Get the value of "some_key" in eg "https://example.com/?some_key=some_value"
-    console.log('Driver:' + params.driver)
-    console.log('Session:' + params.session)
-    
-    speedChart = createChart('speed_container', 'Speed', 'Speed (km/h)', speedChartSelection, speedSeries);
-    throttleChart = createChart('throttle_container', 'Throttle', 'Throttle percentage', throttleChartSelection, throttleSeries);
-    swaChart = createChart ('swa_container', 'Steering Wheel Angle', 'Angle', swaChartSelection, swaSeries);
-    damperChart = createChart ('damper_container', 'Damper Position', 'Damper', damperChartSelection, damperSeries);
-    brakeChart = createChart('brake_container', 'Brake', 'Brake pressure', brakeChartSelection, brakeSeries);
-    gearChart = createChart('gear_container', 'Gear', 'Gear', gearChartSelection, gearSeries);
-    
-    if (speedSeries.length == 2) {
-        speedDeltaChart = createChart('speedDelta_container', 'Speed delta (reference = ' + telemetry.laps[1].name + ')',
-                                      'Cumulated Delta', speedDeltaChartSelection,
-                                      [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
-                                          point: { events: { mouseOver: speedDeltaChartMouseOver, mouseOut: speedDeltaChartMouseOut}},
-                                          data: computeDeltaSurface(speedSeries[0].data, speedSeries[1].data) } ])
-        throttleDeltaChart = createChart('throttleDelta_container', 'Throttle delta (reference = ' + telemetry.laps[1].name + ')',
-                                         'Cumulated Delta', throttleDeltaChartSelection,
-                                         [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
-                                             point: { events: { mouseOver: throttleDeltaChartMouseOver, mouseOut: throttleDeltaChartMouseOut}},
-                                             data: computeDeltaSurface(throttleSeries[0].data, throttleSeries[1].data) } ])
-        brakeDeltaChart = createChart('brakeDelta_container', 'Brake delta (reference = ' + telemetry.laps[1].name + ')',
-                                      'Cumulated Delta', brakeDeltaChartSelection,
-                                      [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
-                                          point: { events: { mouseOver: brakeDeltaChartMouseOver, mouseOut: brakeDeltaChartMouseOut}},
-                                          data: computeDeltaSurface(brakeSeries[0].data, brakeSeries[1].data) } ])
-        timeDeltaChart = createChart('timeDelta_container', 'Time delta (reference = ' + telemetry.laps[1].name + ')',
-                                     'Delta (second)', timeDeltaChartSelection,
-                                     [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 2},
-                                         point: { events: { mouseOver: timeDeltaChartMouseOver, mouseOut: timeDeltaChartMouseOut}},
-                                         data: timeDeltaData } ])
-    } else {
-        document.getElementById('timeDelta_container').style.display = 'none'
-	    document.getElementById('speedDelta_container').style.display = 'none'
-	    document.getElementById('brakeDelta_container').style.display = 'none'
-        document.getElementById('throttleDelta_container').style.display = 'none'
-    }
-});
 
 var secondLapOffset = 0;
 var origSpeedSeries2 = Array()
@@ -637,16 +576,16 @@ function resizeGraphHeight(size) {
     for (const graphContainer of ['speed_container', 'brake_container', 'throttle_container', 'speedDelta_container', 'brakeDelta_container', 'throttleDelta_container', 'timeDelta_container', 'gear_container', 'swa_container', 'damper_container']) {
         document.getElementById(graphContainer).style.height = size + 'px';
     }
-    speedChart.reflow()
-    throttleChart.reflow()
-    brakeChart.reflow()
-    gearChart.reflow()
-    swaChart.reflow()
-    damperChart.reflow()
-    speedDeltaChart.reflow()
-    throttleDeltaChart.reflow()
-    brakeDeltaChart.reflow()
-    timeDeltaChart.reflow()
+    if (speedChart) speedChart.reflow()
+    if (throttleChart) throttleChart.reflow()
+    if (brakeChart) brakeChart.reflow()
+    if (gearChart) gearChart.reflow()
+    if (swaChart) swaChart.reflow()
+    if (damperChart) damperChart.reflow()
+    if (speedDeltaChart) speedDeltaChart.reflow()
+    if (throttleDeltaChart) throttleDeltaChart.reflow()
+    if (brakeDeltaChart) brakeDeltaChart.reflow()
+    if (timeDeltaChart) timeDeltaChart.reflow()
 }
 
 function getMapScale() {
@@ -710,23 +649,6 @@ function stringToBool(value)
 {
     return (value == boolEnabled ? true : false)
 }
-var settings = {
-    chartSize: "small",
-    speedChart: boolEnabled,
-    throttleChart: boolEnabled,
-    brakeChart: boolEnabled,
-    gearChart: boolDisabled,
-    swaChart: boolDisabled,
-    damperChart: boolDisabled,
-    timeDeltaChart: boolEnabled,
-    speedDeltaChart: boolDisabled,
-    throttleDeltaChart: boolDisabled,
-    brakeDeltaChart: boolDisabled,
-    driver: "",
-    track: "",
-    date: "",
-    session: ""    
-}
 
 function saveConfig() {
     window.localStorage.setItem("settings", JSON.stringify(settings));
@@ -777,110 +699,145 @@ function applySettings() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    loadConfig();
-    applySettings();
-    console.log(settings);
-    
+function createChart(container, title, yAxisTitle, chartSelectionFunction, dataSeries) {
+    return Highcharts.chart(container, {
+        chart: { zoomType: 'x', events: { selection: chartSelectionFunction}, spacingBottom: 0, spacingTop: 0},
+        credits: { enabled: false},
+        title: { text: title, align: 'left' },
+        tooltip: { shared: true},
+        xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
+        yAxis: { title: { text: yAxisTitle }, tickPixelInterval: 20, minPadding: 0.01, maxPadding: 0.01, tickPosition: "inside" },
+        legend: { enabled: false },
+	alignTicks: false,
+        series: dataSeries
+    });
+}
+
+function displayData(data) {
+                console.log('DISPLAY DATA')
+   telemetryData = data;
+   parseTelemetryData(data)
+   speedChart = createChart('speed_container', 'Speed', 'Speed (km/h)', speedChartSelection, speedSeries);
+   throttleChart = createChart('throttle_container', 'Throttle', 'Throttle percentage', throttleChartSelection, throttleSeries);
+   swaChart = createChart ('swa_container', 'Steering Wheel Angle', 'Angle', swaChartSelection, swaSeries);
+   damperChart = createChart ('damper_container', 'Damper Position', 'Damper', damperChartSelection, damperSeries);
+   brakeChart = createChart('brake_container', 'Brake', 'Brake pressure', brakeChartSelection, brakeSeries);
+   gearChart = createChart('gear_container', 'Gear', 'Gear', gearChartSelection, gearSeries);
+                
+   if (speedSeries.length == 2) {
+     speedDeltaChart = createChart('speedDelta_container', 'Speed delta (reference = ' + telemetryData.laps[1].name + ')',
+                                   'Cumulated Delta', speedDeltaChartSelection,
+                                   [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                       point: { events: { mouseOver: speedDeltaChartMouseOver, mouseOut: speedDeltaChartMouseOut}},
+                                       data: computeDeltaSurface(speedSeries[0].data, speedSeries[1].data) } ])
+      throttleDeltaChart = createChart('throttleDelta_container', 'Throttle delta (reference = ' + telemetryData.laps[1].name + ')',
+                                       'Cumulated Delta', throttleDeltaChartSelection,
+                                        [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                            point: { events: { mouseOver: throttleDeltaChartMouseOver, mouseOut: throttleDeltaChartMouseOut}},
+                                            data: computeDeltaSurface(throttleSeries[0].data, throttleSeries[1].data) } ])
+      brakeDeltaChart = createChart('brakeDelta_container', 'Brake delta (reference = ' + telemetryData.laps[1].name + ')',
+                                    'Cumulated Delta', brakeDeltaChartSelection,
+                                     [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
+                                         point: { events: { mouseOver: brakeDeltaChartMouseOver, mouseOut: brakeDeltaChartMouseOut}},
+                                         data: computeDeltaSurface(brakeSeries[0].data, brakeSeries[1].data) } ])
+      timeDeltaChart = createChart('timeDelta_container', 'Time delta (reference = ' + telemetryData.laps[1].name + ')',
+                                   'Delta (second)', timeDeltaChartSelection,
+                                   [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 2},
+                                   point: { events: { mouseOver: timeDeltaChartMouseOver, mouseOut: timeDeltaChartMouseOut}},
+                                   data: timeDeltaData } ])
+    } else {
+       document.getElementById('timeDelta_container').style.display = 'none'
+       document.getElementById('speedDelta_container').style.display = 'none'
+       document.getElementById('brakeDelta_container').style.display = 'none'
+       document.getElementById('throttleDelta_container').style.display = 'none'
+    }
+                
     setSummaryContent();
     drawMap(null)
-    document.getElementById('speedConfig').addEventListener('change', (event) => {
-        speedEnabled = event.currentTarget.checked
-        document.getElementById('speed_container').style.display = speedEnabled ? 'block' : 'none'
-        speedChart.reflow()
-	settings.speedChart = boolToString(speedEnabled)
-	saveConfig();
-    })
-    document.getElementById('brakeConfig').addEventListener('change', (event) => {
-        brakeEnabled = event.currentTarget.checked
-        document.getElementById('brake_container').style.display = brakeEnabled ? 'block' : 'none'
-        brakeChart.reflow()
-	settings.brakeChart = boolToString(brakeEnabled)
-	saveConfig();
 
-    })
-    document.getElementById('throttleConfig').addEventListener('change', (event) => {
-        throttleEnabled = event.currentTarget.checked
-        document.getElementById('throttle_container').style.display = throttleEnabled ? 'block' : 'none'
-        throttleChart.reflow()
-	settings.throttleChart = boolToString(throttleEnabled)
-	saveConfig();
-    })
-    document.getElementById('speedDeltaConfig').addEventListener('change', (event) => {
-        speedDeltaEnabled = event.currentTarget.checked
-        document.getElementById('speedDelta_container').style.display = speedDeltaEnabled ? 'block' : 'none'
-        speedDeltaChart.reflow()
-	settings.speedDeltaChart = boolToString(speedDeltaEnabled)
-	saveConfig();
-    })
-    document.getElementById('brakeDeltaConfig').addEventListener('change', (event) => {
-        brakeDeltaEnabled = event.currentTarget.checked
-        document.getElementById('brakeDelta_container').style.display = brakeDeltaEnabled ? 'block' : 'none'
-        brakeDeltaChart.reflow()
-	settings.brakeDeltaChart = boolToString(brakeDeltaEnabled)
-	saveConfig();
-    })
-    document.getElementById('throttleDeltaConfig').addEventListener('change', (event) => {
-        throttleDeltaEnabled = event.currentTarget.checked
-        document.getElementById('throttleDelta_container').style.display = throttleDeltaEnabled ? 'block' : 'none'
-        throttleDeltaChart.reflow()
-	settings.throttleDeltaChart = boolToString(throttleDeltaEnabled)
-	saveConfig();
-    })
-    document.getElementById('timeDeltaConfig').addEventListener('change', (event) => {
-        timeDeltaEnabled = event.currentTarget.checked
-        document.getElementById('timeDelta_container').style.display = timeDeltaEnabled ? 'block' : 'none'
-        timeDeltaChart.reflow()
-	settings.timeDeltaChart = boolToString(timeDeltaEnabled)
-	saveConfig();
-    })
-    document.getElementById('gearConfig').addEventListener('change', (event) => {
-        gearEnabled = event.currentTarget.checked
-        document.getElementById('gear_container').style.display = gearEnabled ? 'block' : 'none'
-        gearChart.reflow()
-	settings.gearChart = boolToString(gearEnabled)
-	saveConfig();
-    })
-    document.getElementById('swaConfig').addEventListener('change', (event) => {
-        swaEnabled = event.currentTarget.checked
-        document.getElementById('swa_container').style.display = swaEnabled ? 'block' : 'none'
-        swaChart.reflow()
-	settings.swaChart = boolToString(swaEnabled)
-	saveConfig();
-    })
-    document.getElementById('damperConfig').addEventListener('change', (event) => {
-        damperEnabled = event.currentTarget.checked
-        document.getElementById('damper_container').style.display = damperEnabled ? 'block' : 'none'
-        damperChart.reflow()
-	settings.damperChart = boolToString(damperEnabled)
-	saveConfig();
-    })
-    document.getElementById('smallChartSize').onclick = function() {
-        resizeGraphHeight(110);
-        document.getElementById('smallChartSize').className = "dropdown-item active";
-        document.getElementById('mediumChartSize').className = "dropdown-item ";
-        document.getElementById('largeChartSize').className = "dropdown-item ";
-	settings.chartSize = "small"
-	saveConfig();
+}
+function clearList(list) {
+  while (list.hasChildNodes()) {
+      list.removeChild(list.firstChild);
+  }
+}
+function driverMenuClic(e) {
+    console.log(this.id)
+}
+function sessionMenuClic(e) {
+    id = this.id;
+    if (id.length > 8 && id.substring(0, 8) == 'session:') {
+        pos = parseInt(id.substring(8))
+        entry = baseEntries[pos]
+        if (entry.driver == settings.driver && entry.track == settings.track && entry.date == settings.date && entry.event == settings.event) {
+            // Clic on the current event
+        } else {
+            settings.driver = entry.driver
+            settings.track = entry.track
+            settings.date = entry.date
+            settings.event = entry.event
+            // update URL
+            const params = new URLSearchParams(window.location.search);
+            params.set('driver', settings.driver)
+            params.set('track', settings.track)
+            params.set('date', settings.date)
+            params.set('event', settings.event)
+            window.location.search = params.toString();
+            fetch(baseEntries[pos].url).then((response) => response.json()).then((json) => displayData(json));
+        }
     }
-    document.getElementById('mediumChartSize').onclick = function() {
-        resizeGraphHeight(160);
-        document.getElementById('smallChartSize').className = "dropdown-item ";
-        document.getElementById('mediumChartSize').className = "dropdown-item active";
-        document.getElementById('largeChartSize').className = "dropdown-item ";
-	settings.chartSize = "medium"
-	saveConfig();
+}
+function addListEntry(list, textToDisplay, selected, id, click) {
+  var li = document.createElement("li");
+  var link = document.createElement("a");
+  var text = document.createTextNode(textToDisplay);
+  link.appendChild(text);
+  link.href = "#";
+  link.setAttribute("class", "dropdown-item")
+  if (id != null)
+    link.setAttribute("id", id)
+  if (click != null)
+    link.addEventListener("click", click)
+  if (selected)
+    link.setAttribute("class", "dropdown-item active");
+  li.appendChild(link);
+  list.appendChild(li);
+  return li;
+}
+function addSubMenu(li) {
+  var ul = document.createElement("ul");
+  ul.setAttribute("class", "submenu dropdown-menu")
+  li.appendChild(ul);
+  return ul;
+}
+function displayMenus() {
+    var driverList = document.getElementById("driverDropDownList");
+    clearList(driverList);
+    var drivers = {}
+    for (i = 0; i < baseEntries.length; ++i) {
+      drivers[baseEntries[i].driver] = 1
     }
-    document.getElementById('largeChartSize').onclick = function() {
-        resizeGraphHeight(210);
-        document.getElementById('smallChartSize').className = "dropdown-item ";
-        document.getElementById('mediumChartSize').className = "dropdown-item ";
-        document.getElementById('largeChartSize').className = "dropdown-item active";
-	settings.chartSize = "large"
-	saveConfig();	
-    }
-    // Display sub-menus
+    Object.keys(drivers).forEach(function (key) {
+        addListEntry(driverList, key, key == settings.driver, key, driverMenuClic)
+    })
     
+    var sessionList = document.getElementById('sessionDropDownList');
+     clearList(sessionList)
+     var tracks = {}
+     for (i = 0; i < baseEntries.length; ++i) {
+         if (baseEntries[i].driver == settings.driver) {
+            tracks[baseEntries[i].track] = 1
+         }
+     }
+    Object.keys(tracks).forEach(function (key) {
+        var li = addListEntry(sessionList, key, key == settings.track)
+        ul = addSubMenu(li);
+        for (i = 0; i < baseEntries.length; ++i) {
+            if (baseEntries[i].driver == settings.driver && baseEntries[i].track == key) {
+                addListEntry(ul, baseEntries[i].date + ' ' + baseEntries[i].event, baseEntries[i].date == settings.date && baseEntries[i].event == settings.event, 'session:' + i, sessionMenuClic)
+            }
+        }
+    })
     // make it as accordion for smaller screens
     if (window.innerWidth < 992) {
 
@@ -911,5 +868,158 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         })
     };
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    base = new Airtable({ apiKey: 'patJgI1nadq27UoBY.c6ba5356a52c3b40232468deeaec4b03de7a8fade952f26284a808ad7c0c4be2' }).base('app2TznoMYSMoNc3j');
+  
+    // Get config from local storage
+    loadConfig();
+    // Parse query parameters
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('driver'))
+	  settings.driver = params.get('driver')
+    if (params.has('track'))
+	  settings.track = params.get('track')
+    if (params.has('event'))
+	  settings.event = params.get('event')
+    if (params.has('date'))
+       settings.date = params.get('date')
+    // Apply the settings
+    applySettings();
+    console.log(settings);
+
+
+    base('Main').select({maxRecords: 5000, view: "Grid view"}).eachPage(function page(records, fetchNextPage) {
+    // This function (`page`) will get called for each page of records.
+    records.forEach(function(record) {
+        var t = record.get('Telemetry');
+        var url = null;
+        for (i = 0; i < t.length; ++i) {
+          if (t[i]['filename'] == 'telemetry.json')
+              url = t[i]['url']
+        }
+        if (url.length > 0) {
+            driver = record.get('DriverName')
+            track = record.get('Track')
+            date = record.get('Date')
+            event = record.get('Event')
+            baseEntries.push({date: date, driver: driver, url: url, track: track, event: event})
+            if (settings.driver == driver &&
+              settings.track == track &&
+              settings.date == date &&
+              settings.event == event) {
+             fetch(url).then((response) => response.json()).then((json) => displayData(json));
+          }
+        }
+     });
+     // To fetch the next page of records, call `fetchNextPage`.
+     // If there are more records, `page` will get called again.
+     // If there are no more records, `done` will get called.
+     fetchNextPage();
+  }, function done(err) {
+    // Checl if there is any error while fetching airtable content
+    if (err) { console.error(err); return; }
+
+    displayMenus();
+  });
+
+    document.getElementById('speedConfig').addEventListener('change', (event) => {
+        speedEnabled = event.currentTarget.checked
+        document.getElementById('speed_container').style.display = speedEnabled ? 'block' : 'none'
+        speedChart.reflow()
+        settings.speedChart = boolToString(speedEnabled)
+        saveConfig();
+    })
+    document.getElementById('brakeConfig').addEventListener('change', (event) => {
+        brakeEnabled = event.currentTarget.checked
+        document.getElementById('brake_container').style.display = brakeEnabled ? 'block' : 'none'
+        brakeChart.reflow()
+        settings.brakeChart = boolToString(brakeEnabled)
+        saveConfig();
+
+    })
+    document.getElementById('throttleConfig').addEventListener('change', (event) => {
+        throttleEnabled = event.currentTarget.checked
+        document.getElementById('throttle_container').style.display = throttleEnabled ? 'block' : 'none'
+        throttleChart.reflow()
+        settings.throttleChart = boolToString(throttleEnabled)
+        saveConfig();
+    })
+    document.getElementById('speedDeltaConfig').addEventListener('change', (event) => {
+        speedDeltaEnabled = event.currentTarget.checked
+        document.getElementById('speedDelta_container').style.display = speedDeltaEnabled ? 'block' : 'none'
+        speedDeltaChart.reflow()
+        settings.speedDeltaChart = boolToString(speedDeltaEnabled)
+        saveConfig();
+    })
+    document.getElementById('brakeDeltaConfig').addEventListener('change', (event) => {
+        brakeDeltaEnabled = event.currentTarget.checked
+        document.getElementById('brakeDelta_container').style.display = brakeDeltaEnabled ? 'block' : 'none'
+        brakeDeltaChart.reflow()
+        settings.brakeDeltaChart = boolToString(brakeDeltaEnabled)
+        saveConfig();
+    })
+    document.getElementById('throttleDeltaConfig').addEventListener('change', (event) => {
+        throttleDeltaEnabled = event.currentTarget.checked
+        document.getElementById('throttleDelta_container').style.display = throttleDeltaEnabled ? 'block' : 'none'
+        throttleDeltaChart.reflow()
+        settings.throttleDeltaChart = boolToString(throttleDeltaEnabled)
+        saveConfig();
+    })
+    document.getElementById('timeDeltaConfig').addEventListener('change', (event) => {
+        timeDeltaEnabled = event.currentTarget.checked
+        document.getElementById('timeDelta_container').style.display = timeDeltaEnabled ? 'block' : 'none'
+        timeDeltaChart.reflow()
+        settings.timeDeltaChart = boolToString(timeDeltaEnabled)
+        saveConfig();
+    })
+    document.getElementById('gearConfig').addEventListener('change', (event) => {
+        gearEnabled = event.currentTarget.checked
+        document.getElementById('gear_container').style.display = gearEnabled ? 'block' : 'none'
+        gearChart.reflow()
+        settings.gearChart = boolToString(gearEnabled)
+        saveConfig();
+    })
+    document.getElementById('swaConfig').addEventListener('change', (event) => {
+        swaEnabled = event.currentTarget.checked
+        document.getElementById('swa_container').style.display = swaEnabled ? 'block' : 'none'
+        swaChart.reflow()
+        settings.swaChart = boolToString(swaEnabled)
+        saveConfig();
+    })
+    document.getElementById('damperConfig').addEventListener('change', (event) => {
+        damperEnabled = event.currentTarget.checked
+        document.getElementById('damper_container').style.display = damperEnabled ? 'block' : 'none'
+        damperChart.reflow()
+        settings.damperChart = boolToString(damperEnabled)
+        saveConfig();
+    })
+    document.getElementById('smallChartSize').onclick = function() {
+        resizeGraphHeight(110);
+        document.getElementById('smallChartSize').className = "dropdown-item active";
+        document.getElementById('mediumChartSize').className = "dropdown-item ";
+        document.getElementById('largeChartSize').className = "dropdown-item ";
+        settings.chartSize = "small"
+        saveConfig();
+    }
+    document.getElementById('mediumChartSize').onclick = function() {
+        resizeGraphHeight(160);
+        document.getElementById('smallChartSize').className = "dropdown-item ";
+        document.getElementById('mediumChartSize').className = "dropdown-item active";
+        document.getElementById('largeChartSize').className = "dropdown-item ";
+        settings.chartSize = "medium"
+        saveConfig();
+    }
+    document.getElementById('largeChartSize').onclick = function() {
+        resizeGraphHeight(210);
+        document.getElementById('smallChartSize').className = "dropdown-item ";
+        document.getElementById('mediumChartSize').className = "dropdown-item ";
+        document.getElementById('largeChartSize').className = "dropdown-item active";
+        settings.chartSize = "large"
+        saveConfig();
+    }
+
 });
 
