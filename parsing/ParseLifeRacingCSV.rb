@@ -144,15 +144,65 @@ while i < ARGV.size do
   fd.readline # skip name of original LRD
   fd.readline # skip frequency
   fd.readline # skip empty line
+
   csv = CSV.new(fd.read, :headers => true)
   csv.each do |row|
-    lap = (row[' lapCount'].to_i + i * 100).to_s
-    dist = (row[' distance_LV'].to_f * 1000).to_i
+    distanceKey = ' distance_LV'
+    distanceFactor = 1000
+    lapCountKey = ' lapCount'
+    speedKey = ' vehicleSpeed'
+    timeKey = 'Time'
+    gearKey = ' gear'
+    swaKey = ' swa'
+    throttleKey = ' ppsA'
+    brakeKey = ' bpf'
+    rpmKey = ' rpm'
+    damperKey = ' frDamper'
+    
+    if !row.has_key?(distanceKey)
+      distanceKey = ' lapDistance'
+      distanceFactor = 1
+    end
+    if !row.has_key?(distanceKey)
+      raise "Cannot find distance channel"
+    end
+    if !row.has_key?(lapCountKey)
+      raise "Cannot find lap count channel"
+    end
+    if !row.has_key?(timeKey)
+      raise "Cannot find time channel"
+    end
+    if !row.has_key?(speedKey)
+      speedKey = ' flSpeed'
+    end
+    if !row.has_key?(speedKey)
+      raise "Cannot find speed channel"
+    end
+    if !row.has_key?(gearKey)
+      raise "Cannot find gear channel"
+    end
+    if !row.has_key?(swaKey)
+      raise "Cannot find SWA channel"
+    end
+    if !row.has_key?(throttleKey)
+      raise "Cannot find Throttle channel"
+    end
+    if !row.has_key?(brakeKey)
+      raise "Cannot find Brake channel"
+    end
+    if !row.has_key?(rpmKey)
+      raise "Cannot find RPM channel"
+    end
+    if !row.has_key?(damperKey)
+      raise "Cannot find damper channel"
+    end
+    lap = (row[lapCountKey].to_i + i * 100).to_s
+    dist = (row[distanceKey].to_f * distanceFactor).to_i
     if not laps.has_key?(lap)
-      laps[lap] = Lap.new(lap, lap.to_i == lapToImport, name, row['Time'].to_f)
+      laps[lap] = Lap.new(lap, lap.to_i == lapToImport, name, row[timeKey].to_f)
       refDist = dist
     end
-    laps[lap].add(row['Time'].to_f, dist - refDist, row[' vehicleSpeed'].to_f, row[' gear'], row[' rpm'].to_i, row[' ppsA'].to_f, row[' bpf'].to_f, row[' swa'].to_f, row[' frDamper'].to_f, row[' gpsLat'].to_f / 60.0, row[' gpsLong'].to_f / 60.0)
+    laps[lap].add(row[timeKey].to_f, dist - refDist, row[speedKey].to_f, row[gearKey], row[rpmKey].to_i, row[throttleKey].to_f, row[brakeKey].to_f, row[swaKey].to_f, row[damperKey].to_f, row[' gpsLat'].to_f / 60.0, row[' gpsLong'].to_f / 60.0)
   end
   fd.close()
   i += 3
