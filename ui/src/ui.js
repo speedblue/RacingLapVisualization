@@ -21,6 +21,8 @@ var settings = {
     driver: "Julien Lemoine",
     track: "Valencia",
     date: "2023-02-19",
+    car: "Ligier JS2R",
+    desc: null,
     event: "GTWS"
 }
 
@@ -396,7 +398,7 @@ function displayLapTime(lapData) {
 function setSummaryContent() {
     if (telemetryData == null)
         return;
-    var value = settings.track + '</br>' + metersToKm(maxDist) + '</br>' + settings.car + '</br>' + settings.date + '</br>' + settings.event + '</br>' +
+    var value = settings.track + '</br>' + metersToKm(maxDist) + '</br>' + settings.car + '</br>' + settings.date + '</br>' + (settings.desc ? settings.desc : settings.event) + '</br>' +
         telemetryData.laps[0].name + ' in ' + displayLapTime(telemetryData.laps[0].data) + ' (' + maxDist1 + 'm)</br>';
     if (telemetryData.laps.length == 2) {
         value += telemetryData.laps[1].name + ' in ' + displayLapTime(telemetryData.laps[1].data) + ' (' + maxDist2 + 'm)</br>';
@@ -655,7 +657,7 @@ function saveConfig() {
 }
 function loadConfig() {
     if (window.localStorage.getItem("settings")) {
-	settings = JSON.parse(window.localStorage.getItem("settings"))
+        settings = JSON.parse(window.localStorage.getItem("settings"))
     }
 }
 
@@ -712,11 +714,20 @@ function createChart(container, title, yAxisTitle, chartSelectionFunction, dataS
         series: dataSeries
     });
 }
+function hideContent() {
+    document.getElementById('summaryMap').style.display = 'none'
+    document.getElementById('charts').style.display = 'none'
+    document.getElementById('spinner').style.display = 'block'
 
+}
+                      
 function displayData(data) {
-                console.log('DISPLAY DATA')
    telemetryData = data;
    parseTelemetryData(data)
+   document.getElementById('summaryMap').style.display = 'block'
+   document.getElementById('charts').style.display = 'block'
+   document.getElementById('spinner').style.display = 'none'
+
    speedChart = createChart('speed_container', 'Speed', 'Speed (km/h)', speedChartSelection, speedSeries);
    throttleChart = createChart('throttle_container', 'Throttle', 'Throttle percentage', throttleChartSelection, throttleSeries);
    swaChart = createChart ('swa_container', 'Steering Wheel Angle', 'Angle', swaChartSelection, swaSeries);
@@ -784,8 +795,11 @@ function sessionMenuClic(e) {
             settings.track = entry.track
             settings.date = entry.date
             settings.event = entry.event
+            settings.car = entry.car
+            settings.desc = entry.desc
             saveConfig();
             updateBrowserURL();
+            hideContent();
             fetch(baseEntries[pos].url).then((response) => response.json()).then((json) => displayData(json));
         }
     }
@@ -799,10 +813,13 @@ function driverMenuClic(e) {
             settings.date = baseEntries[i].date
             settings.event = baseEntries[i].event
             settings.track = baseEntries[i].track
+            settings.car = baseEntries[i].car
+            settings.desc = baseEntries[i].desc
             saveConfig();
             found = true;
             displayMenus();
             updateBrowserURL();
+            hideContent();
             fetch(baseEntries[i].url).then((response) => response.json()).then((json) => displayData(json));
         }
     }
@@ -891,9 +908,9 @@ function displayMenus() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-
+    hideContent();
     base = new Airtable({ apiKey: 'patJgI1nadq27UoBY.c6ba5356a52c3b40232468deeaec4b03de7a8fade952f26284a808ad7c0c4be2' }).base('app2TznoMYSMoNc3j');
-  
+
     // Get config from local storage
     loadConfig();
     // Parse query parameters
@@ -908,8 +925,6 @@ document.addEventListener('DOMContentLoaded', function () {
        settings.date = params.get('date')
     // Apply the settings
     applySettings();
-    console.log(settings);
-
 
     base('Main').select({maxRecords: 5000, view: "Grid view"}).eachPage(function page(records, fetchNextPage) {
     // This function (`page`) will get called for each page of records.
@@ -925,12 +940,14 @@ document.addEventListener('DOMContentLoaded', function () {
             track = record.get('Track')
             date = record.get('Date')
             event = record.get('Event')
-            baseEntries.push({date: date, driver: driver, url: url, track: track, event: event})
+            baseEntries.push({date: date, driver: driver, url: url, track: track, event: event, car: record.get('Car'), desc: record.get('EventDescription')})
             if (settings.driver == driver &&
               settings.track == track &&
               settings.date == date &&
               settings.event == event) {
-             fetch(url).then((response) => response.json()).then((json) => displayData(json));
+              settings.car = record.get('Car')
+              settings.desc = record.get('EventDescription')
+              fetch(url).then((response) => response.json()).then((json) => displayData(json));
           }
         }
      });
