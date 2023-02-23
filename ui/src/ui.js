@@ -761,9 +761,17 @@ function clearList(list) {
       list.removeChild(list.firstChild);
   }
 }
-function driverMenuClic(e) {
-    console.log(this.id)
+
+function updateBrowserURL() {
+    // update URL
+    const params = new URLSearchParams(window.location.search);
+    params.set('driver', settings.driver)
+    params.set('track', settings.track)
+    params.set('date', settings.date)
+    params.set('event', settings.event)
+    window.location.search = params.toString();
 }
+
 function sessionMenuClic(e) {
     id = this.id;
     if (id.length > 8 && id.substring(0, 8) == 'session:') {
@@ -776,14 +784,26 @@ function sessionMenuClic(e) {
             settings.track = entry.track
             settings.date = entry.date
             settings.event = entry.event
-            // update URL
-            const params = new URLSearchParams(window.location.search);
-            params.set('driver', settings.driver)
-            params.set('track', settings.track)
-            params.set('date', settings.date)
-            params.set('event', settings.event)
-            window.location.search = params.toString();
+            saveConfig();
+            updateBrowserURL();
             fetch(baseEntries[pos].url).then((response) => response.json()).then((json) => displayData(json));
+        }
+    }
+}
+function driverMenuClic(e) {
+    settings.driver = this.id;
+    // Load the first session of this driver
+    var found = false;
+    for (i = 0; !found && i < baseEntries.length; ++i) {
+        if (baseEntries[i].driver == this.id) {
+            settings.date = baseEntries[i].date
+            settings.event = baseEntries[i].event
+            settings.track = baseEntries[i].track
+            saveConfig();
+            found = true;
+            displayMenus();
+            updateBrowserURL();
+            fetch(baseEntries[i].url).then((response) => response.json()).then((json) => displayData(json));
         }
     }
 }
