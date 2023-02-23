@@ -1,37 +1,38 @@
+var Airtable = require('airtable');
 
 // Scan the array and remplace empty values by the most accurate value (averrage of left + right values)
 function normalizeValues(array) {
     // Fill left
-    left = 0;
+    var left = 0;
     while (left < array.length && array[left] == null)
         ++left;
     if (left < array.length) {
-        for (i = 0; i < left; ++left)
+        for (var i = 0; i < left; ++left)
             array[i] = array[left]
     }
     // Fill right
-    right = array.length - 1;
+    var right = array.length - 1;
     while (right > 0 && array[right] == null)
         --right;
     if (right > 0) {
-        for (i = right + 1; i < array.length; ++i)
+        for (var i = right + 1; i < array.length; ++i)
             array[i] = array[right];
     }
-    for (i = 0; i < array.length; ++i) {
+    for (var i = 0; i < array.length; ++i) {
         if (array[i] == null) {
             console.assert(i > 0, "null at left side of array")
             console.assert(array[i - 1] != null, "null at previous position of array")
 
-            firstEl = i;
-            left = i - 1;
+            const firstEl = i;
+            const left = i - 1;
             while (i < array.length && array[i] == null) ++i;
-            right = i;
+            const right = i;
             
             console.assert(i < array.length, "null at right side of array")
             console.assert(array[i] != null, "null at next position of array")
-            gap = (array[right] - array[left]) / (right - left)
+            const gap = (array[right] - array[left]) / (right - left)
 
-            for (j = firstEl; j < i; ++j) {
+            for (var j = firstEl; j < i; ++j) {
                 array[j] = array[j - 1] + gap;
             }
         }
@@ -39,28 +40,29 @@ function normalizeValues(array) {
 }
 
 function computeDeltaSurface(data1, data2) {
-    data = []
-    delta = 0.0
-    for (i = 0; i < data1.length; ++i) {
+    var data = []
+    var delta = 0.0
+    for (var i = 0; i < data1.length; ++i) {
         delta += data1[i][1] - data2[i][1]
         data.push([i, delta]);
     }
     return data;
 }
 
-speedSeries = []
-throttleSeries = []
-brakeSeries = []
-gearSeries = []
-timeSeries = []
-gpsLatSeries = []
-gpsLongSeries = []
-swaSeries = []
-damperSeries = []
-maxDist = 0
-maxDist1 = 0
-maxDist2 = 0
-timeDeltaData = []
+var base = null
+var speedSeries = []
+var throttleSeries = []
+var brakeSeries = []
+var gearSeries = []
+var timeSeries = []
+var gpsLatSeries = []
+var gpsLongSeries = []
+var swaSeries = []
+var damperSeries = []
+var maxDist = 0
+var maxDist1 = 0
+var maxDist2 = 0
+var timeDeltaData = []
 
 function computeDistance(lat1, lon1, lat2, lon2)
 {
@@ -80,19 +82,19 @@ function computeDistance(lat1, lon1, lat2, lon2)
 
 function parseTelemetryData() {
     
-    timePosition = -1;
-    distancePosition = -1;
-    speedPosition = -1;
-    brakePosition = -1;
-    throttlePosition = -1;
-    gearPosition = -1;
-    swaPosition = -1;
-    damperPosition = -1;
-    gpsLatPosition = -1;
-    gpsLongPosition = -1;
+    var timePosition = -1;
+    var distancePosition = -1;
+    var speedPosition = -1;
+    var brakePosition = -1;
+    var throttlePosition = -1;
+    var gearPosition = -1;
+    var swaPosition = -1;
+    var damperPosition = -1;
+    var gpsLatPosition = -1;
+    var gpsLongPosition = -1;
     
     // analyze format
-    for (i = 0; i < telemetry.dataFormat.length; ++i) {
+    for (var i = 0; i < telemetry.dataFormat.length; ++i) {
         switch (telemetry.dataFormat[i]) {
             case 'D':
                 distancePosition = i;
@@ -128,53 +130,52 @@ function parseTelemetryData() {
                 console.log("Unknown data format:" + telemetry.dataFormat[i])
         }
     }
-    console.assert(timePosition >= 0)
-    console.assert(distancePosition >= 0)
-    console.assert(speedPosition >= 0)
+    console.assert(timePosition >= 0, "no time in data format")
+    console.assert(distancePosition >= 0, "no distance in data format")
+    console.assert(speedPosition >= 0, "no speed in data format")
 
-
-    count = 0
-    for (const lap of telemetry.laps) {
-        for (const d of lap.data) {
-            if (d[distancePosition] > maxDist) {
+    var count = 0
+    for (var lap of telemetry.laps) {
+        for (var d of lap.data) {
+            if (d[distancePosition] >= maxDist) {
                 maxDist = d[distancePosition] + 1
             }
-            if (count == 0 && d[distancePosition] > maxDist1) {
+            if (count == 0 && d[distancePosition] >= maxDist1) {
                 maxDist1 = d[distancePosition] + 1
             }
-            if (count == 1 && d[distancePosition] > maxDist2) {
+            if (count == 1 && d[distancePosition] >= maxDist2) {
                 maxDist2 = d[distancePosition] + 1
             }
         }
         ++count
     }
 
-    offsetRecall = 0
-    shortLap = -1
+    var offsetRecall = 0
+    var shortLap = -1
     if (telemetry.laps.length == 2 && gpsLatPosition >= 0 && gpsLongPosition >= 0) {
         // Compute offset
         shortLap = maxDist1 < maxDist2 ? 0 : 1;
         offsetRecall = Math.abs(maxDist2 - maxDist1) / maxDist
     }
 
-    for (pos = 0; pos < telemetry.laps.length; ++pos) {
-        lap = telemetry.laps[pos]
-        time = Array(maxDist).fill(null)
-        speed = Array(maxDist).fill(null)
-        gear = Array(maxDist).fill(null)
-        throttle = Array(maxDist).fill(null)
-        brake = Array(maxDist).fill(null)
-        swa = Array(maxDist).fill(null)
-        damper = Array(maxDist).fill(null)
-        gpsLat = Array(maxDist).fill(null)
-        gpsLong = Array(maxDist).fill(null)
+    for (var pos = 0; pos < telemetry.laps.length; ++pos) {
+        var lap = telemetry.laps[pos]
+        var time = Array(maxDist).fill(null)
+        var speed = Array(maxDist).fill(null)
+        var gear = Array(maxDist).fill(null)
+        var throttle = Array(maxDist).fill(null)
+        var brake = Array(maxDist).fill(null)
+        var swa = Array(maxDist).fill(null)
+        var damper = Array(maxDist).fill(null)
+        var gpsLat = Array(maxDist).fill(null)
+        var gpsLong = Array(maxDist).fill(null)
         
-        for (const d of lap.data) {
+        for (var d of lap.data) {
            
-            dist = d[distancePosition];
+            var dist = d[distancePosition];
             if (pos == shortLap)
                 dist += Math.round(d[distancePosition] * offsetRecall)
-            console.assert(dist < maxDist);
+            console.assert(dist < maxDist, "dist >= maxDist failed");
             time[dist] = d[timePosition]
             speed[dist] = d[speedPosition]
             if (gearPosition >= 0)
@@ -210,19 +211,19 @@ function parseTelemetryData() {
         if (gpsLongPosition >= 0)
             normalizeValues(gpsLong)
         
-        speedObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+        var speedObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: speedChartMouseOver, mouseOut: speedChartMouseOut}} }
-        throttleObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+        var throttleObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: throttleChartMouseOver, mouseOut: throttleChartMouseOut}} }
-        brakeObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+        var brakeObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: brakeChartMouseOver, mouseOut: brakeChartMouseOut}} }
-        swaObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+        var swaObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: swaChartMouseOver, mouseOut: swaChartMouseOut}} }
-        damperObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+        var damperObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: damperChartMouseOver, mouseOut: damperChartMouseOut}} }
-        gearObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
+        var gearObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: gearChartMouseOver, mouseOut: gearChartMouseOut}} }
-        for (i = 0; i < maxDist; ++i) {
+        for (var i = 0; i < maxDist; ++i) {
             speedObj.data.push([i, speed[i]])
             throttleObj.data.push([i, throttle[i]])
             brakeObj.data.push([i, brake[i]])
@@ -243,22 +244,22 @@ function parseTelemetryData() {
     // Compute TimeDelta Graph
     
     if (timeSeries.length == 2) {
-        for (i = 0; i < maxDist; ++i) {
-            delta = timeSeries[0][i] - timeSeries[1][i]
+        for (var i = 0; i < maxDist; ++i) {
+            var delta = timeSeries[0][i] - timeSeries[1][i]
             delta = Math.floor(delta * 100) / 100.0
             timeDeltaData.push(delta)
         }
         
         // reduce noise in timeDeltaData by checking at 20m area and removing small spikes than less than 0.1s
-        for (i = 0; i < timeDeltaData.length; ++i) {
-            found = 0;
-            for (j = 1; j < 20 && (i + j) < timeDeltaData.length; ++j) {
+        for (var i = 0; i < timeDeltaData.length; ++i) {
+            var found = 0;
+            for (var j = 1; j < 20 && (i + j) < timeDeltaData.length; ++j) {
                 if (timeDeltaData[i] == timeDeltaData[i + j]) {
                     found = j;
                 }
             }
             if (found > 0) {
-                for (j = 1; j < found; ++j) {
+                for (var j = 1; j < found; ++j) {
                     if (Math.abs(timeDeltaData[i + j] - timeDeltaData[i]) < 0.1)
                         timeDeltaData[i + j] = timeDeltaData[i]
                 }
@@ -327,44 +328,50 @@ Highcharts.setOptions({
              '#FF9655', '#FFF263', '#6AF9C4']
 });
   
-speedChart = null;
-throttleChart = null;
-swaChart = null;
-damperChart = null;
-brakeChart = null;
-gearChart = null;
+var speedChart = null;
+var throttleChart = null;
+var swaChart = null;
+var damperChart = null;
+var brakeChart = null;
+var gearChart = null;
 
-speedDeltaChart = null;
-throttleDeltaChart = null;
-brakeDeltaChart = null;
-timeDeltaChart = null;
+var speedDeltaChart = null;
+var throttleDeltaChart = null;
+var brakeDeltaChart = null;
+var timeDeltaChart = null;
 
-speedEnabled = true
-brakeEnabled = true
-throttleEnabled = true
-speedDeltaEnabled = false
-brakeDeltaEnabled = false
-throttleDeltaEnabled = false
-timeDeltaEnabled = true
-gearEnabled = false
-swaEnabled = false
-damperEnabled = false
+var speedEnabled = true
+var brakeEnabled = true
+var throttleEnabled = true
+var speedDeltaEnabled = false
+var brakeDeltaEnabled = false
+var throttleDeltaEnabled = false
+var timeDeltaEnabled = true
+var gearEnabled = false
+var swaEnabled = false
+var damperEnabled = false
 
-currentZoom = null;
+var currentZoom = null;
 
 function metersToKm(value) {
-    return Math.floor(value / 1000) + '.' + Math.floor(value % 1000) + ' km';
+    var res = Math.floor(value / 1000) + '.';
+    var meters = Math.floor(value % 1000)
+    if (meters < 10)
+	return res + '00' + meters + ' km';
+    if (meters < 100)
+	return res + '0' + meters + ' km';
+    return res + meters + ' km';
 }
 function displayLapTime(lapData) {
-    lastEl = lapData[lapData.length - 1]
-    timeInSec = lastEl[1]
-    sec = (Math.floor(timeInSec) % 60)
-    msec = (Math.floor(timeInSec * 100) % 100)
+    const lastEl = lapData[lapData.length - 1]
+    const timeInSec = lastEl[1]
+    const sec = (Math.floor(timeInSec) % 60)
+    const msec = (Math.floor(timeInSec * 100) % 100)
     return Math.floor(timeInSec / 60) + ':' + (sec < 10 ? '0' : '') + sec + '.' + (msec < 10 ? '0' : '') + msec;
 }
 
 function setSummaryContent() {
-    value = telemetry.trackName + '</br>' + metersToKm(maxDist) + '</br>' + telemetry.car + '</br>' + telemetry.date + '</br>' + telemetry.event + '</br>' +
+    var value = telemetry.trackName + '</br>' + metersToKm(maxDist) + '</br>' + telemetry.car + '</br>' + telemetry.date + '</br>' + telemetry.event + '</br>' +
         telemetry.laps[0].name + ' in ' + displayLapTime(telemetry.laps[0].data) + ' (' + maxDist1 + 'm)</br>';
     if (telemetry.laps.length == 2) {
         value += telemetry.laps[1].name + ' in ' + displayLapTime(telemetry.laps[1].data) + ' (' + maxDist2 + 'm)</br>';
@@ -382,7 +389,7 @@ function setSummaryContent() {
 
 function updateOneChartZoom(srcChart, dstChart, min, max) {
     
-    reset = (min == null && max == null)
+    const reset = (min == null && max == null)
     if (reset)
         currentZoom = null;
     else
@@ -437,13 +444,44 @@ function createChart(container, title, yAxisTitle, chartSelectionFunction, dataS
         title: { text: title, align: 'left' },
         tooltip: { shared: true},
         xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: yAxisTitle }, tickAmount:10, tickAmount:10 },
+        yAxis: { title: { text: yAxisTitle }, tickAmount: 10, endOnTick: false, maxPadding: 0.01 },
         legend: { enabled: false },
-	alignTicks:false,
+	alignTicks: false,
+	spacingTop: 0, spacingBottom: 10, 
         series: dataSeries
     });
 }
 document.addEventListener('DOMContentLoaded', function () {
+    base = new Airtable({ apiKey: 'patJgI1nadq27UoBY.c6ba5356a52c3b40232468deeaec4b03de7a8fade952f26284a808ad7c0c4be2' }).base('app2TznoMYSMoNc3j');
+
+    base('Main').select({maxRecords: 5000, view: "Grid view"}).eachPage(function page(records, fetchNextPage) {
+      // This function (`page`) will get called for each page of records.
+	records.forEach(function(record) {
+	    var telemetryData = record.get('Telemetry');
+	    if (telemetryData != null  && telemetryData[0]['filename'] == 'telemetry.json') {
+               console.log('Scan DriverName', record.get('DriverName'));
+	       console.log('Scan Date', record.get('Date'));
+	       console.log('Scan:' +  record.id);
+  	       fetch(telemetryData[0]['url']).then((response) => response.json()).then((json) => console.log(json));
+	   }
+      });
+      // To fetch the next page of records, call `fetchNextPage`.
+      // If there are more records, `page` will get called again.
+      // If there are no more records, `done` will get called.
+      fetchNextPage();
+
+    }, function done(err) {
+      if (err) { console.error(err); return; }
+    });
+
+    console.log(window.location.search)
+    const params = new Proxy(new URLSearchParams(window.location.search), {
+	get: (searchParams, prop) => searchParams.get(prop),
+    });
+    // Get the value of "some_key" in eg "https://example.com/?some_key=some_value"
+    console.log('Driver:' + params.driver)
+    console.log('Session:' + params.session)
+    
     speedChart = createChart('speed_container', 'Speed', 'Speed (km/h)', speedChartSelection, speedSeries);
     throttleChart = createChart('throttle_container', 'Throttle', 'Throttle percentage', throttleChartSelection, throttleSeries);
     swaChart = createChart ('swa_container', 'Steering Wheel Angle', 'Angle', swaChartSelection, swaSeries);
@@ -480,22 +518,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-secondLapOffset = 0;
-origSpeedSeries2 = Array()
-newSpeedSeries2 = Array()
-origBrakeSeries2 = Array()
-newBrakeSeries2 = Array()
-origThrottleSeries2 = Array()
-newThrottleSeries2 = Array()
-origDamperSeries2 = Array()
-newDamperSeries2 = Array()
+var secondLapOffset = 0;
+var origSpeedSeries2 = Array()
+var newSpeedSeries2 = Array()
+var origBrakeSeries2 = Array()
+var newBrakeSeries2 = Array()
+var origThrottleSeries2 = Array()
+var newThrottleSeries2 = Array()
+var origDamperSeries2 = Array()
+var newDamperSeries2 = Array()
 
 function offsetSecondLapGraphes() {
     if (speedChart.series.length != 2)
         return;
     if (origSpeedSeries2.length == 0) {
         // First instance, copy orig data
-        for (i = 0; i < maxDist; ++i) {
+        for (var i = 0; i < maxDist; ++i) {
             newSpeedSeries2.push([i, 0]);
             newBrakeSeries2.push([i, 0]);
             newThrottleSeries2.push([i, 0]);
@@ -506,7 +544,7 @@ function offsetSecondLapGraphes() {
             origDamperSeries2.push([i, damperSeries[1].data[i][1]])
         }
     }
-    for (i = 0; i < maxDist; ++i) {
+    for (var i = 0; i < maxDist; ++i) {
         newPos = i + secondLapOffset;
         if (newPos < 0) {
             newPos = maxDist + newPos
@@ -544,7 +582,7 @@ function moveSecondLapRight() {
 
 // Navigation by left/right key in the graphs when zoom is active
 window.onload = function (){
-    eventHandler = function (e) {
+    const eventHandler = function (e) {
         // Handle graph sync
         if (e.shiftKey && e.keyCode == 37) { // Shift Left
             moveSecondLapLeft();
@@ -607,12 +645,14 @@ function resizeGraphHeight(size) {
 }
 
 function getMapScale() {
-    let left = Infinity, right  = -Infinity;
-    let top  = Infinity, bottom = -Infinity;
+    var left = Infinity
+    var right  = -Infinity;
+    var top  = Infinity
+    var bottom = -Infinity;
     
-    for (i = 0; i < gpsLatSeries[0].length; ++i) {
-        latitude = gpsLatSeries[0][i];
-        longitude = gpsLongSeries[0][i];
+    for (var i = 0; i < gpsLatSeries[0].length; ++i) {
+        const latitude = gpsLatSeries[0][i];
+        const longitude = gpsLongSeries[0][i];
         if (left   > latitude ) left   = latitude;
         if (top    > longitude) top    = longitude;
         if (right  < latitude ) right  = latitude;
@@ -624,20 +664,20 @@ function getMapScale() {
 function drawMap(position) {
   if (gpsLatSeries.length == 0 || gpsLongSeries.length == 0)
       return;
-  let canvas = document.getElementById("mapCanvas")
-  let mapScale = getMapScale();
-  let canvasScale = Math.min(canvas.width, canvas.height);
-  let canvasOffsetX = (canvasScale == canvas.width ? 0 : (canvas.width - canvas.height) / 2);
-  let canvasOffsetY = (canvasScale == canvas.height ? 0 : (canvas.height - canvas.width) / 2);
-  let ctx = canvas.getContext("2d");
-  let margin = 6; // 3 pixel on each side to allow display of the circle
+  var canvas = document.getElementById("mapCanvas")
+  var mapScale = getMapScale();
+  const canvasScale = Math.min(canvas.width, canvas.height);
+  const canvasOffsetX = (canvasScale == canvas.width ? 0 : (canvas.width - canvas.height) / 2);
+  const canvasOffsetY = (canvasScale == canvas.height ? 0 : (canvas.height - canvas.width) / 2);
+  var ctx = canvas.getContext("2d");
+  const margin = 6; // 3 pixel on each side to allow display of the circle
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  for (i = 0; i < gpsLatSeries[0].length; ++i) {
-      latitude = (gpsLatSeries[0][i] + mapScale.offsetX) / mapScale.scaleX;
-      longitude = (gpsLongSeries[0][i] + mapScale.offsetY) / mapScale.scaleY;
-      let x = canvasOffsetX + latitude  * (canvasScale - margin);
-      let y = canvasOffsetY + longitude * (canvasScale - margin);
+  for (var i = 0; i < gpsLatSeries[0].length; ++i) {
+      const latitude = (gpsLatSeries[0][i] + mapScale.offsetX) / mapScale.scaleX;
+      const longitude = (gpsLongSeries[0][i] + mapScale.offsetY) / mapScale.scaleY;
+      const x = canvasOffsetX + latitude  * (canvasScale - margin);
+      const y = canvasOffsetY + longitude * (canvasScale - margin);
       if (currentZoom != null && i >= currentZoom[0] && i <= currentZoom[1])
           ctx.fillStyle = "blue";
       else
@@ -645,10 +685,10 @@ function drawMap(position) {
       ctx.fillRect(x, y, 1, 1);
   }
   if (position != null) {
-    latitude = (gpsLatSeries[0][position] + mapScale.offsetX) / mapScale.scaleX;
-    longitude = (gpsLongSeries[0][position] + mapScale.offsetY) / mapScale.scaleY;
-    let x = canvasOffsetX + latitude  * (canvasScale - margin);
-    let y = canvasOffsetY + longitude * (canvasScale - margin);
+    const latitude = (gpsLatSeries[0][position] + mapScale.offsetX) / mapScale.scaleX;
+    const longitude = (gpsLongSeries[0][position] + mapScale.offsetY) / mapScale.scaleY;
+    const x = canvasOffsetX + latitude  * (canvasScale - margin);
+    const y = canvasOffsetY + longitude * (canvasScale - margin);
 
     ctx.beginPath();
     ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
@@ -657,7 +697,25 @@ function drawMap(position) {
  }
 }
 
+const racingLapConfigKey = 'racingLapConfig'
+function saveConfig(config) {
+    localStorage.setItem(racingLapConfigKey, config);
+}
+
+function loadConfig() {
+    var config = {};
+    if (localStorage.getItem(racingLapConfigKey)) {
+        config = localStorage.getItem('racingLapConfig');
+    }
+    return config
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+    var config = loadConfig();
+    console.log(config);
+    config = "Ceci est un test"
+    saveConfig(config);
+    
     setSummaryContent();
     drawMap(null)
     document.getElementById('speedConfig').addEventListener('change', (event) => {
@@ -747,7 +805,7 @@ document.addEventListener('DOMContentLoaded', function () {
             
             element.addEventListener('click', function (e) {
                 e.stopPropagation();
-                let nextEl = this.nextElementSibling;
+                var nextEl = this.nextElementSibling;
                 if(nextEl && nextEl.classList.contains('submenu')) {
                     //e.preventDefault();
                     if(nextEl.style.display == 'block'){

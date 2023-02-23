@@ -1,0 +1,41 @@
+{
+  "private": true,
+  "devDependencies": {
+     "webpack": "^5.4.0",
+     "webpack-cli": "^4.2.0"
+   },
+  "dependencies": {
+    "airtable": "^0.11.6",
+    "bootstrap": "^5.2.3",
+    "highcharts": "^10.3.3"
+  },
+  "name": "racing-lap-visualization",
+  "version": "1.0.0",
+  "description": "Visualize racing telemetry and compare two laps",
+  "main": "ui.js",
+  "devDependencies": {
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/speedblue/RacingLapVisualization.git"
+  },
+  "keywords": [
+    "Racing",
+    "Lap",
+    "Visualization",
+    "Web",
+    "UI"
+  ],
+  "author": "Julien Lemoine",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/speedblue/RacingLapVisualization/issues"
+  },
+  "homepage": "https://github.com/speedblue/RacingLapVisualization#readme"
+}
