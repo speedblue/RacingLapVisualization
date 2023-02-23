@@ -444,10 +444,9 @@ function createChart(container, title, yAxisTitle, chartSelectionFunction, dataS
         title: { text: title, align: 'left' },
         tooltip: { shared: true},
         xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
-        yAxis: { title: { text: yAxisTitle }, tickAmount: 10, endOnTick: false, maxPadding: 0.01 },
+        yAxis: { title: { text: yAxisTitle }, tickPixelInterval: 20, minPadding: 0.01, maxPadding: 0.01, tickPosition: "inside" },
         legend: { enabled: false },
 	alignTicks: false,
-	spacingTop: 0, spacingBottom: 10, 
         series: dataSeries
     });
 }
