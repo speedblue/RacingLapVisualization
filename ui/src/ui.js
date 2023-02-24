@@ -931,11 +931,11 @@ document.addEventListener('DOMContentLoaded', function () {
     records.forEach(function(record) {
         var t = record.get('Telemetry');
         var url = null;
-        for (i = 0; i < t.length; ++i) {
+        for (i = 0; t != null && i < t.length; ++i) {
           if (t[i]['filename'] == 'telemetry.json')
               url = t[i]['url']
         }
-        if (url.length > 0) {
+        if (url != null && url.length > 0) {
             driver = record.get('DriverName')
             track = record.get('Track')
             date = record.get('Date')
