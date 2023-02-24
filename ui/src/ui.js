@@ -5,12 +5,15 @@ const boolDisabled = "disabled"
 const chartSmallSize = 110;
 const chartMediumSize = 160;
 const chartLargeSize = 210;
+const chartXLargeSize = 275;
+const chartXXLargeSize = 350;
 
 var settings = {
     chartSize: "small",
     speedChart: boolEnabled,
     throttleChart: boolEnabled,
     brakeChart: boolEnabled,
+    throttleBrakeChart: boolDisabled,
     gearChart: boolDisabled,
     swaChart: boolDisabled,
     damperChart: boolDisabled,
@@ -26,34 +29,21 @@ var settings = {
     event: "GTWS"
 }
 
-Highcharts.setOptions({
-    colors: [ '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
-             '#FF9655', '#FFF263', '#6AF9C4']
+Highcharts.setOptions({colors: [ '#00cc66', '#ff704d', '#006600', '#800000', '#DDDF00', '#24CBE5', '#64E572', '#FF9655', '#FFF263', '#6AF9C4']
 });
 
 var telemetryData = null;
 var speedChart = null;
 var throttleChart = null;
+var brakeChart = null;
+var throttleBrakeChart = null;
 var swaChart = null;
 var damperChart = null;
-var brakeChart = null;
 var gearChart = null;
-
 var speedDeltaChart = null;
 var throttleDeltaChart = null;
 var brakeDeltaChart = null;
 var timeDeltaChart = null;
-
-var speedEnabled = true
-var brakeEnabled = true
-var throttleEnabled = true
-var speedDeltaEnabled = false
-var brakeDeltaEnabled = false
-var throttleDeltaEnabled = false
-var timeDeltaEnabled = true
-var gearEnabled = false
-var swaEnabled = false
-var damperEnabled = false
 
 var currentZoom = null;
 
@@ -61,6 +51,7 @@ var base = null
 var speedSeries = []
 var throttleSeries = []
 var brakeSeries = []
+var throttleBrakeSeries = []
 var gearSeries = []
 var timeSeries = []
 var gpsLatSeries = []
@@ -150,7 +141,21 @@ function parseTelemetryData(telemetry) {
     var damperPosition = -1;
     var gpsLatPosition = -1;
     var gpsLongPosition = -1;
-    
+    speedSeries = []
+    throttleSeries = []
+    brakeSeries = []
+    throttleBrakeSeries = []
+    gearSeries = []
+    timeSeries = []
+    gpsLatSeries = []
+    gpsLongSeries = []
+    swaSeries = []
+    damperSeries = []
+    maxDist = 0
+    maxDist1 = 0
+    maxDist2 = 0
+    timeDeltaData = []
+
     // analyze format
     for (var i = 0; i < telemetry.dataFormat.length; ++i) {
         switch (telemetry.dataFormat[i]) {
@@ -215,7 +220,7 @@ function parseTelemetryData(telemetry) {
         shortLap = maxDist1 < maxDist2 ? 0 : 1;
         offsetRecall = Math.abs(maxDist2 - maxDist1) / maxDist
     }
-
+    throttleBrakeSeries = Array(telemetry.laps.length * 2).fill(null)
     for (var pos = 0; pos < telemetry.laps.length; ++pos) {
         var lap = telemetry.laps[pos]
         var time = Array(maxDist).fill(null)
@@ -227,7 +232,7 @@ function parseTelemetryData(telemetry) {
         var damper = Array(maxDist).fill(null)
         var gpsLat = Array(maxDist).fill(null)
         var gpsLong = Array(maxDist).fill(null)
-        
+
         for (var d of lap.data) {
            
             var dist = d[distancePosition];
@@ -273,8 +278,12 @@ function parseTelemetryData(telemetry) {
             point: { events: { mouseOver: speedChartMouseOver, mouseOut: speedChartMouseOut}} }
         var throttleObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: throttleChartMouseOver, mouseOut: throttleChartMouseOut}} }
+        var throttleObj2 = {data: [], name: lap.name + ' Throttle', type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: throttleBrakeChartMouseOver, mouseOut: throttleBrakeChartMouseOut}} }
         var brakeObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: brakeChartMouseOver, mouseOut: brakeChartMouseOut}} }
+        var brakeObj2 = {data: [], name: lap.name + ' Brake', type: 'line', tooltip: {valueDecimals:1},
+            point: { events: { mouseOver: throttleBrakeChartMouseOver, mouseOut: throttleBrakeChartMouseOut}} }
         var swaObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
             point: { events: { mouseOver: swaChartMouseOver, mouseOut: swaChartMouseOut}} }
         var damperObj = {data: [], name: lap.name, type: 'line', tooltip: {valueDecimals:1},
@@ -289,6 +298,10 @@ function parseTelemetryData(telemetry) {
             damperObj.data.push([i, damper[i]])
             gearObj.data.push([i, gear[i]])
         }
+        brakeObj2.data = brakeObj.data
+        throttleObj2.data = throttleObj.data
+        throttleBrakeSeries[pos] = throttleObj2
+        throttleBrakeSeries[telemetry.laps.length + pos] = brakeObj2
         speedSeries.push(speedObj)
         throttleSeries.push(throttleObj)
         brakeSeries.push(brakeObj)
@@ -345,22 +358,25 @@ function refreshTooltips(srcChart, dstChart, position, enabled) {
     }
 }
 function refreshAllTooltips(srcChart, position, enabled) {
-    if (speedEnabled) refreshTooltips(srcChart, speedChart, position, enabled)
-    if (throttleEnabled) refreshTooltips(srcChart, throttleChart, position, enabled)
-    if (brakeEnabled) refreshTooltips(srcChart, brakeChart, position, enabled)
-    if (gearEnabled) refreshTooltips(srcChart, gearChart, position, enabled)
-    if (swaEnabled) refreshTooltips(srcChart, swaChart, position, enabled)
-    if (damperEnabled) refreshTooltips(srcChart, damperChart, position, enabled)
-    if (speedDeltaEnabled) refreshTooltips(srcChart, speedDeltaChart, position, enabled)
-    if (throttleDeltaEnabled) refreshTooltips(srcChart, throttleDeltaChart, position, enabled)
-    if (brakeDeltaEnabled) refreshTooltips(srcChart, brakeDeltaChart, position, enabled)
-    if (timeDeltaEnabled) refreshTooltips(srcChart, timeDeltaChart, position, enabled)
+    if (stringToBool(settings.speedChart)) refreshTooltips(srcChart, speedChart, position, enabled)
+    if (stringToBool(settings.throttleChart)) refreshTooltips(srcChart, throttleChart, position, enabled)
+    if (stringToBool(settings.brakeChart)) refreshTooltips(srcChart, brakeChart, position, enabled)
+    if (stringToBool(settings.throttleBrakeChart)) refreshTooltips(srcChart, throttleBrakeChart, position, enabled)
+    if (stringToBool(settings.gearChart)) refreshTooltips(srcChart, gearChart, position, enabled)
+    if (stringToBool(settings.swaChart)) refreshTooltips(srcChart, swaChart, position, enabled)
+    if (stringToBool(settings.damperChart)) refreshTooltips(srcChart, damperChart, position, enabled)
+    if (stringToBool(settings.speedDeltaChart)) refreshTooltips(srcChart, speedDeltaChart, position, enabled)
+    if (stringToBool(settings.throttleDeltaChart)) refreshTooltips(srcChart, throttleDeltaChart, position, enabled)
+    if (stringToBool(settings.brakeDeltaChart)) refreshTooltips(srcChart, brakeDeltaChart, position, enabled)
+    if (stringToBool(settings.timeDeltaChart)) refreshTooltips(srcChart, timeDeltaChart, position, enabled)
     drawMap(position)
 }
 function speedChartMouseOver(e) { refreshAllTooltips(speedChart, this.x, true); }
 function speedChartMouseOut(e) { refreshAllTooltips(speedChart, this.x, false); }
 function throttleChartMouseOver(e) { refreshAllTooltips(throttleChart, this.x, true); }
 function throttleChartMouseOut(e) { refreshAllTooltips(throttleChart, this.x, false); }
+function throttleBrakeChartMouseOver(e) { refreshAllTooltips(throttleBrakeChart, this.x, true); }
+function throttleBrakeChartMouseOut(e) { refreshAllTooltips(throttleBrakeChart, this.x, false); }
 function brakeChartMouseOver(e) { refreshAllTooltips(brakeChart, this.x, true); }
 function brakeChartMouseOut(e) { refreshAllTooltips(brakeChart, this.x, false); }
 function swaChartMouseOver(e) { refreshAllTooltips(swaChart, this.x, true); }
@@ -434,6 +450,7 @@ function updateOneChartZoom(srcChart, dstChart, min, max) {
 function updateAllChartZoom(srcChart, min, max) {
     updateOneChartZoom(srcChart, speedChart, min, max)
     updateOneChartZoom(srcChart, throttleChart, min, max)
+    updateOneChartZoom(srcChart, throttleBrakeChart, min, max)
     updateOneChartZoom(srcChart, brakeChart, min, max)
     updateOneChartZoom(srcChart, gearChart, min, max)
     updateOneChartZoom(srcChart, swaChart, min, max)
@@ -455,6 +472,7 @@ function applyChartSelection(chart, event) {
 }
 function speedChartSelection(event) { applyChartSelection(speedChart, event) }
 function throttleChartSelection(event) { applyChartSelection(throttleChart, event) }
+function throttleBrakeChartSelection(event) { applyChartSelection(throttleBrakeChart, event) }
 function swaChartSelection(event) { applyChartSelection(swaChart, event) }
 function damperChartSelection(event) { applyChartSelection(damperChart, event) }
 function brakeChartSelection(event) { applyChartSelection(brakeChart, event) }
@@ -507,6 +525,9 @@ function offsetSecondLapGraphes() {
     throttleChart.series[1].setData(newThrottleSeries2)
     damperChart.series[1].setData(newDamperSeries2)
     damperChart.redraw();
+    throttleBrakeChart.series[1].setData(newThrottleSeries2)
+    throttleBrakeChart.series[3].setData(newBrakeSeries2)
+    throttleBrakeChart.redraw();
 }
 function resetSecondLapGraphes() {
     secondLapOffset = 0;
@@ -516,6 +537,9 @@ function resetSecondLapGraphes() {
     brakeChart.series[1].setData(origBrakeSeries2)
     throttleChart.series[1].setData(origThrottleSeries2)
     damperChart.series[1].setData(origDamperSeries2)
+    throttleBrakeChart.series[1].setData(origThrottleSeries2)
+    throttleBrakeChart.series[3].setData(origBrakeSeries2)
+    throttleBrakeChart.redraw();
 }
 function moveSecondLapLeft() {
     --secondLapOffset;
@@ -575,12 +599,13 @@ window.onload = function (){
 
 
 function resizeGraphHeight(size) {
-    for (const graphContainer of ['speed_container', 'brake_container', 'throttle_container', 'speedDelta_container', 'brakeDelta_container', 'throttleDelta_container', 'timeDelta_container', 'gear_container', 'swa_container', 'damper_container']) {
+    for (const graphContainer of ['speed_container', 'brake_container', 'throttle_container', 'throttleBrake_container', 'speedDelta_container', 'brakeDelta_container', 'throttleDelta_container', 'timeDelta_container', 'gear_container', 'swa_container', 'damper_container']) {
         document.getElementById(graphContainer).style.height = size + 'px';
     }
     if (speedChart) speedChart.reflow()
     if (throttleChart) throttleChart.reflow()
     if (brakeChart) brakeChart.reflow()
+    if (throttleBrakeChart) throttleBrakeChart.reflow()
     if (gearChart) gearChart.reflow()
     if (swaChart) swaChart.reflow()
     if (damperChart) damperChart.reflow()
@@ -668,6 +693,8 @@ function applySettings() {
     document.getElementById('brakeConfig').checked = stringToBool(settings.brakeChart)
     document.getElementById('throttle_container').style.display = stringToBool(settings.throttleChart) ? 'block' : 'none'
     document.getElementById('throttleConfig').checked = stringToBool(settings.throttleChart)
+    document.getElementById('throttleBrake_container').style.display = stringToBool(settings.throttleBrakeChart) ? 'block' : 'none'
+    document.getElementById('throttleBrakeConfig').checked = stringToBool(settings.throttleBrakeChart)
     document.getElementById('speedDelta_container').style.display = stringToBool(settings.speedDeltaChart) ? 'block' : 'none'
     document.getElementById('speedDeltaConfig').checked = stringToBool(settings.speedDeltaChart)
     document.getElementById('brakeDelta_container').style.display = stringToBool(settings.brakeDeltaChart) ? 'block' : 'none'
@@ -682,22 +709,41 @@ function applySettings() {
     document.getElementById('swaConfig').checked = stringToBool(settings.swaChart)
     document.getElementById('damper_container').style.display = stringToBool(settings.damperChart) ? 'block' : 'none'
     document.getElementById('damperConfig').checked = stringToBool(settings.damperChart)
-    if (settings.chartSize == "large") {
+    if (settings.chartSize == "XXlarge") {
+        resizeGraphHeight(chartXXLargeSize);
+        document.getElementById('smallChartSize').className = "dropdown-item";
+        document.getElementById('mediumChartSize').className = "dropdown-item";
+        document.getElementById('largeChartSize').className = "dropdown-item";
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item active";
+    } else if (settings.chartSize == "Xlarge") {
+        resizeGraphHeight(chartXLargeSize);
+        document.getElementById('smallChartSize').className = "dropdown-item";
+        document.getElementById('mediumChartSize').className = "dropdown-item";
+        document.getElementById('largeChartSize').className = "dropdown-item";
+        document.getElementById('XlargeChartSize').className = "dropdown-item active";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
+    } else if (settings.chartSize == "large") {
         resizeGraphHeight(chartLargeSize);
         document.getElementById('smallChartSize').className = "dropdown-item";
         document.getElementById('mediumChartSize').className = "dropdown-item";
         document.getElementById('largeChartSize').className = "dropdown-item active";
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
     } else if (settings.chartSize == "medium") {
         resizeGraphHeight(chartMediumSize);
         document.getElementById('smallChartSize').className = "dropdown-item";
         document.getElementById('mediumChartSize').className = "dropdown-item active";
         document.getElementById('largeChartSize').className = "dropdown-item";
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
     } else {
         resizeGraphHeight(chartSmallSize);
         document.getElementById('smallChartSize').className = "dropdown-item active";
         document.getElementById('mediumChartSize').className = "dropdown-item";
         document.getElementById('largeChartSize').className = "dropdown-item";
-
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
     }
 }
 
@@ -730,9 +776,10 @@ function displayData(data) {
 
    speedChart = createChart('speed_container', 'Speed', 'Speed (km/h)', speedChartSelection, speedSeries);
    throttleChart = createChart('throttle_container', 'Throttle', 'Throttle percentage', throttleChartSelection, throttleSeries);
+   brakeChart = createChart('brake_container', 'Brake', 'Brake pressure', brakeChartSelection, brakeSeries);
+   throttleBrakeChart = createChart('throttleBrake_container', 'Throttle + Brake', 'Value', throttleBrakeChartSelection, throttleBrakeSeries);
    swaChart = createChart ('swa_container', 'Steering Wheel Angle', 'Angle', swaChartSelection, swaSeries);
    damperChart = createChart ('damper_container', 'Damper Position', 'Damper', damperChartSelection, damperSeries);
-   brakeChart = createChart('brake_container', 'Brake', 'Brake pressure', brakeChartSelection, brakeSeries);
    gearChart = createChart('gear_container', 'Gear', 'Gear', gearChartSelection, gearSeries);
                 
    if (speedSeries.length == 2) {
@@ -963,14 +1010,14 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
     document.getElementById('speedConfig').addEventListener('change', (event) => {
-        speedEnabled = event.currentTarget.checked
+        var speedEnabled = event.currentTarget.checked
         document.getElementById('speed_container').style.display = speedEnabled ? 'block' : 'none'
         speedChart.reflow()
         settings.speedChart = boolToString(speedEnabled)
         saveConfig();
     })
     document.getElementById('brakeConfig').addEventListener('change', (event) => {
-        brakeEnabled = event.currentTarget.checked
+        var brakeEnabled = event.currentTarget.checked
         document.getElementById('brake_container').style.display = brakeEnabled ? 'block' : 'none'
         brakeChart.reflow()
         settings.brakeChart = boolToString(brakeEnabled)
@@ -978,85 +1025,117 @@ document.addEventListener('DOMContentLoaded', function () {
 
     })
     document.getElementById('throttleConfig').addEventListener('change', (event) => {
-        throttleEnabled = event.currentTarget.checked
+        var throttleEnabled = event.currentTarget.checked
         document.getElementById('throttle_container').style.display = throttleEnabled ? 'block' : 'none'
         throttleChart.reflow()
         settings.throttleChart = boolToString(throttleEnabled)
         saveConfig();
     })
+    document.getElementById('throttleBrakeConfig').addEventListener('change', (event) => {
+        var throttleBrakeEnabled = event.currentTarget.checked
+        document.getElementById('throttleBrake_container').style.display = throttleBrakeEnabled ? 'block' : 'none'
+        throttleBrakeChart.reflow()
+        settings.throttleBrakeChart = boolToString(throttleBrakeEnabled)
+        saveConfig();
+    })
     document.getElementById('speedDeltaConfig').addEventListener('change', (event) => {
-        speedDeltaEnabled = event.currentTarget.checked
+        var speedDeltaEnabled = event.currentTarget.checked
         document.getElementById('speedDelta_container').style.display = speedDeltaEnabled ? 'block' : 'none'
         speedDeltaChart.reflow()
         settings.speedDeltaChart = boolToString(speedDeltaEnabled)
         saveConfig();
     })
     document.getElementById('brakeDeltaConfig').addEventListener('change', (event) => {
-        brakeDeltaEnabled = event.currentTarget.checked
+        var brakeDeltaEnabled = event.currentTarget.checked
         document.getElementById('brakeDelta_container').style.display = brakeDeltaEnabled ? 'block' : 'none'
         brakeDeltaChart.reflow()
         settings.brakeDeltaChart = boolToString(brakeDeltaEnabled)
         saveConfig();
     })
     document.getElementById('throttleDeltaConfig').addEventListener('change', (event) => {
-        throttleDeltaEnabled = event.currentTarget.checked
+        var throttleDeltaEnabled = event.currentTarget.checked
         document.getElementById('throttleDelta_container').style.display = throttleDeltaEnabled ? 'block' : 'none'
         throttleDeltaChart.reflow()
         settings.throttleDeltaChart = boolToString(throttleDeltaEnabled)
         saveConfig();
     })
     document.getElementById('timeDeltaConfig').addEventListener('change', (event) => {
-        timeDeltaEnabled = event.currentTarget.checked
+        var timeDeltaEnabled = event.currentTarget.checked
         document.getElementById('timeDelta_container').style.display = timeDeltaEnabled ? 'block' : 'none'
         timeDeltaChart.reflow()
         settings.timeDeltaChart = boolToString(timeDeltaEnabled)
         saveConfig();
     })
     document.getElementById('gearConfig').addEventListener('change', (event) => {
-        gearEnabled = event.currentTarget.checked
+        var gearEnabled = event.currentTarget.checked
         document.getElementById('gear_container').style.display = gearEnabled ? 'block' : 'none'
         gearChart.reflow()
         settings.gearChart = boolToString(gearEnabled)
         saveConfig();
     })
     document.getElementById('swaConfig').addEventListener('change', (event) => {
-        swaEnabled = event.currentTarget.checked
+        var swaEnabled = event.currentTarget.checked
         document.getElementById('swa_container').style.display = swaEnabled ? 'block' : 'none'
         swaChart.reflow()
         settings.swaChart = boolToString(swaEnabled)
         saveConfig();
     })
     document.getElementById('damperConfig').addEventListener('change', (event) => {
-        damperEnabled = event.currentTarget.checked
+        var damperEnabled = event.currentTarget.checked
         document.getElementById('damper_container').style.display = damperEnabled ? 'block' : 'none'
         damperChart.reflow()
         settings.damperChart = boolToString(damperEnabled)
         saveConfig();
     })
     document.getElementById('smallChartSize').onclick = function() {
-        resizeGraphHeight(110);
+        resizeGraphHeight(chartSmallSize);
         document.getElementById('smallChartSize').className = "dropdown-item active";
         document.getElementById('mediumChartSize').className = "dropdown-item ";
         document.getElementById('largeChartSize').className = "dropdown-item ";
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
         settings.chartSize = "small"
         saveConfig();
     }
     document.getElementById('mediumChartSize').onclick = function() {
-        resizeGraphHeight(160);
+        resizeGraphHeight(chartMediumSize);
         document.getElementById('smallChartSize').className = "dropdown-item ";
         document.getElementById('mediumChartSize').className = "dropdown-item active";
         document.getElementById('largeChartSize').className = "dropdown-item ";
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
         settings.chartSize = "medium"
         saveConfig();
     }
     document.getElementById('largeChartSize').onclick = function() {
-        resizeGraphHeight(210);
+        resizeGraphHeight(chartLargeSize);
         document.getElementById('smallChartSize').className = "dropdown-item ";
         document.getElementById('mediumChartSize').className = "dropdown-item ";
         document.getElementById('largeChartSize').className = "dropdown-item active";
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
         settings.chartSize = "large"
         saveConfig();
     }
-
+    document.getElementById('XlargeChartSize').onclick = function() {
+        resizeGraphHeight(chartXLargeSize);
+        document.getElementById('smallChartSize').className = "dropdown-item ";
+        document.getElementById('mediumChartSize').className = "dropdown-item ";
+        document.getElementById('largeChartSize').className = "dropdown-item";
+        document.getElementById('XlargeChartSize').className = "dropdown-item active";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item";
+        settings.chartSize = "Xlarge"
+        saveConfig();
+    }
+    document.getElementById('XXlargeChartSize').onclick = function() {
+        resizeGraphHeight(chartXXLargeSize);
+        document.getElementById('smallChartSize').className = "dropdown-item ";
+        document.getElementById('mediumChartSize').className = "dropdown-item ";
+        document.getElementById('largeChartSize').className = "dropdown-item";
+        document.getElementById('XlargeChartSize').className = "dropdown-item";
+        document.getElementById('XXlargeChartSize').className = "dropdown-item active";
+        settings.chartSize = "XXlarge"
+        saveConfig();
+    }
 });
 
