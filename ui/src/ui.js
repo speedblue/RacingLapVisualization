@@ -553,6 +553,7 @@ function moveSecondLapRight() {
 // Navigation by left/right key in the graphs when zoom is active
 window.onload = function (){
     const eventHandler = function (e) {
+
         // Handle graph sync
         if (e.shiftKey && e.keyCode == 37) { // Shift Left
             moveSecondLapLeft();
@@ -578,7 +579,7 @@ window.onload = function (){
         if (currentZoom == null)
             return;
         navigationIncrement = Math.round(0.25 * (currentZoom[1] - currentZoom[0])); // going left/right by 1/4, zooming out by 25%
-        if (e.keyCode == 189 || e.keyCode == 109) { // - key
+        if (e.keyCode == 189 || e.keyCode == 109 || e.keyCode == 54) { // - key + '6' key for some french keyboard
             left = (currentZoom[0] < (navigationIncrement / 2)) ? 0 : currentZoom[0] - (navigationIncrement / 2);
             right = ((currentZoom[1] + (navigationIncrement / 2)) > maxDist) ? maxDist : currentZoom[1] + (navigationIncrement / 2);
             updateAllChartZoom(null, left, right);
