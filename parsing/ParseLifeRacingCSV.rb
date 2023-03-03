@@ -129,27 +129,26 @@ class DistanceData
   end
 end
 
-if ARGV.size < 3 || ARGV.size % 3 != 0
-  raise "Usage: parse.rb Filename1 lapNumber1 Name1 [Filename2 lapNumber2 Name2]*"
+if ARGV.size < 2 || ARGV.size % 2 != 0
+  raise "Usage: parse.rb Filename1 Name1 [Filename2 Name2]*"
 end
 
 # parsing...
 laps = {}
 refDist = 0
 i = 0
+lap = 0
 while i < ARGV.size do
-  lapToImport = ARGV[i + 1].to_i
-  name = ARGV[i + 2]
+  name = ARGV[i + 1]
   fd = File.open(ARGV[i], "r")
   fd.readline # skip name of original LRD
-  fd.readline # skip frequency
-  fd.readline # skip empty line
-
+#  fd.readline # skip frequency
+#  fd.readline # skip empty line
+  lap = lap + 1
   csv = CSV.new(fd.read, :headers => true)
   csv.each do |row|
     distanceKey = ' distance_LV'
     distanceFactor = 1000
-    lapCountKey = ' lapCount'
     speedKey = ' vehicleSpeed'
     timeKey = 'Time'
     gearKey = ' gear'
@@ -165,9 +164,6 @@ while i < ARGV.size do
     end
     if !row.has_key?(distanceKey)
       raise "Cannot find distance channel"
-    end
-    if !row.has_key?(lapCountKey)
-      raise "Cannot find lap count channel"
     end
     if !row.has_key?(timeKey)
       raise "Cannot find time channel"
@@ -196,16 +192,17 @@ while i < ARGV.size do
     if !row.has_key?(damperKey)
       raise "Cannot find damper channel"
     end
-    lap = (row[lapCountKey].to_i + i * 100).to_s
+
     dist = (row[distanceKey].to_f * distanceFactor).to_i
+
     if not laps.has_key?(lap)
-      laps[lap] = Lap.new(lap, lap.to_i == lapToImport, name, row[timeKey].to_f)
+      laps[lap] = Lap.new(lap, true, name, row[timeKey].to_f)
       refDist = dist
     end
     laps[lap].add(row[timeKey].to_f, dist - refDist, row[speedKey].to_f, row[gearKey], row[rpmKey].to_i, row[throttleKey].to_f, row[brakeKey].to_f, row[swaKey].to_f, row[damperKey].to_f, row[' gpsLat'].to_f / 60.0, row[' gpsLong'].to_f / 60.0)
   end
   fd.close()
-  i += 3
+  i += 2
 end
 
 #display results
