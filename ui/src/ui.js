@@ -29,7 +29,7 @@ var settings = {
     event: "GTWS"
 }
 
-Highcharts.setOptions({colors: [ '#00cc66', '#ff704d', '#006600', '#800000', '#DDDF00', '#24CBE5', '#64E572', '#FF9655', '#FFF263', '#6AF9C4']
+Highcharts.setOptions({colors: [ '#ff704d', '#00cc66', '#800000', '#006600', '#DDDF00', '#24CBE5', '#64E572', '#FF9655', '#FFF263', '#6AF9C4']
 });
 
 var telemetryData = null;
@@ -91,7 +91,7 @@ function normalizeValues(array) {
             const left = i - 1;
             while (i < array.length && array[i] == null) ++i;
             const right = i;
-            
+            // Perform a linear approximation
             console.assert(i < array.length, "null at right side of array")
             console.assert(array[i] != null, "null at next position of array")
             const gap = (array[right] - array[left]) / (right - left)
@@ -315,13 +315,22 @@ function parseTelemetryData(telemetry) {
     // Compute TimeDelta Graph
     
     if (timeSeries.length == 2) {
+        // Compute the simple diff between the two times
         for (var i = 0; i < maxDist; ++i) {
-            var delta = timeSeries[0][i] - timeSeries[1][i]
-            delta = Math.floor(delta * 100) / 100.0
+            var delta = timeSeries[1][i] - timeSeries[0][i]
             timeDeltaData.push(delta)
         }
+        // Remove all the small glitches by doing a mean between 3 consecutives data points
+        var tmpTimeDelta = Array(maxDist).fill(0);
+        for (var i = 0; i < maxDist; ++i) {
+            const prev = i > 0 ? timeDeltaData[i - 1] : timeDeltaData[i];
+            const next = (i + 1 < maxDist) ? timeDeltaData[i + 1] : timeDeltaData[i];
+            const avg = (prev + next + timeDeltaData[i]) / 3
+            tmpTimeDelta[i] = Math.round(avg * 100) / 100.0 // Move precision to 0.01s;
+        }
+        timeDeltaData = tmpTimeDelta;
         
-        // reduce noise in timeDeltaData by checking at 20m area and removing small spikes than less than 0.1s
+        // reduce noise in timeDeltaData by checking inside a 20m area if there are small spikes smaller than 0.1s and coming back to the same initial value
         for (var i = 0; i < timeDeltaData.length; ++i) {
             var found = 0;
             for (var j = 1; j < 20 && (i + j) < timeDeltaData.length; ++j) {
@@ -335,6 +344,24 @@ function parseTelemetryData(telemetry) {
                         timeDeltaData[i + j] = timeDeltaData[i]
                 }
             }
+        }
+        // For each value, perform a linear approximation to the next 0.01s increment (avoid jump on the screen)
+        for (var i = 0; i < timeDeltaData.length; ) {
+            var j = i + 1;
+            while (timeDeltaData[i] == timeDeltaData[j] && j < timeDeltaData.length)
+                ++j;
+            if (j < timeDeltaData.length) {
+                // Do a linear approx between i and j
+                const left = i;
+                const right = j;
+                
+                const gap = (timeDeltaData[right] - timeDeltaData[left]) / (right - left)
+                
+                for (var k = i + 1; k < j; ++k) {
+                    timeDeltaData[k] = timeDeltaData[k - 1] + gap;
+                }
+            }
+            i = j;
         }
     }
 }
@@ -784,22 +811,22 @@ function displayData(data) {
    gearChart = createChart('gear_container', 'Gear', 'Gear', gearChartSelection, gearSeries);
                 
    if (speedSeries.length == 2) {
-     speedDeltaChart = createChart('speedDelta_container', 'Speed delta (reference = ' + telemetryData.laps[1].name + ')',
+     speedDeltaChart = createChart('speedDelta_container', 'Speed delta (reference = ' + telemetryData.laps[0].name + ')',
                                    'Cumulated Delta', speedDeltaChartSelection,
                                    [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
                                        point: { events: { mouseOver: speedDeltaChartMouseOver, mouseOut: speedDeltaChartMouseOut}},
-                                       data: computeDeltaSurface(speedSeries[0].data, speedSeries[1].data) } ])
-      throttleDeltaChart = createChart('throttleDelta_container', 'Throttle delta (reference = ' + telemetryData.laps[1].name + ')',
+                                       data: computeDeltaSurface(speedSeries[1].data, speedSeries[0].data) } ])
+      throttleDeltaChart = createChart('throttleDelta_container', 'Throttle delta (reference = ' + telemetryData.laps[0].name + ')',
                                        'Cumulated Delta', throttleDeltaChartSelection,
                                         [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
                                             point: { events: { mouseOver: throttleDeltaChartMouseOver, mouseOut: throttleDeltaChartMouseOut}},
-                                            data: computeDeltaSurface(throttleSeries[0].data, throttleSeries[1].data) } ])
-      brakeDeltaChart = createChart('brakeDelta_container', 'Brake delta (reference = ' + telemetryData.laps[1].name + ')',
+                                            data: computeDeltaSurface(throttleSeries[1].data, throttleSeries[0].data) } ])
+      brakeDeltaChart = createChart('brakeDelta_container', 'Brake delta (reference = ' + telemetryData.laps[0].name + ')',
                                     'Cumulated Delta', brakeDeltaChartSelection,
                                      [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 0},
                                          point: { events: { mouseOver: brakeDeltaChartMouseOver, mouseOut: brakeDeltaChartMouseOut}},
-                                         data: computeDeltaSurface(brakeSeries[0].data, brakeSeries[1].data) } ])
-      timeDeltaChart = createChart('timeDelta_container', 'Time delta (reference = ' + telemetryData.laps[1].name + ')',
+                                         data: computeDeltaSurface(brakeSeries[1].data, brakeSeries[0].data) } ])
+      timeDeltaChart = createChart('timeDelta_container', 'Time delta (reference = ' + telemetryData.laps[0].name + ')',
                                    'Delta (second)', timeDeltaChartSelection,
                                    [ { name: 'Cumulated Delta', type: 'line', tooltip: { valueDecimals: 2},
                                    point: { events: { mouseOver: timeDeltaChartMouseOver, mouseOut: timeDeltaChartMouseOut}},
