@@ -206,7 +206,7 @@ while i < ARGV.size do
 end
 
 #display results
-out = File.open("output.json", "w")
+out = File.open("telemetry.json", "w")
 out.write("{")
 out.write("\"dataFormat\": \"DTSgtbsxyd\",");
 out.write ("\"laps\": [");
