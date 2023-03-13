@@ -789,7 +789,7 @@ function applySettings() {
 }
 
 function createChart(container, title, yAxisTitle, chartSelectionFunction, dataSeries, plotZeroLine) {
-      plotZeroLine =  [{ value: 0, color: 'black', width: 2, zIndex: 3}]
+      zeroLineConfig =  [{ value: 0, color: 'black', width: 2, zIndex: 3}]
       return Highcharts.chart(container, {
         chart: { zoomType: 'x', events: { selection: chartSelectionFunction}, spacingBottom: 0, spacingTop: 0},
         credits: { enabled: false},
@@ -797,7 +797,7 @@ function createChart(container, title, yAxisTitle, chartSelectionFunction, dataS
         tooltip: { shared: true},
         xAxis: { type: 'linear', crosshair: { color: 'green', dashStyle: 'solid' }},
         yAxis: { title: { text: yAxisTitle }, tickPixelInterval: 20, minPadding: 0.01,
-                 maxPadding: 0.01, tickPosition: "inside" , plotLines: (plotZeroLine ? zeroLineConfig : []))}
+                 maxPadding: 0.01, tickPosition: "inside" , plotLines: (plotZeroLine ? zeroLineConfig : [])},
         legend: { enabled: false },
 	    alignTicks: false,
         series: dataSeries
